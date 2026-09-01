@@ -1,16 +1,32 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Group, ActionIcon, Text, Button } from '@mantine/core';
+import { Group, ActionIcon, Text, Button, Paper } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import type { PollConfig } from '@/lib/types';
-import { cellToUtc, enumerateDates, rowCount } from '@/lib/time';
+import {
+  addMinutes,
+  cellToUtc,
+  enumerateDates,
+  formatInstant,
+  formatTime,
+  rowCount,
+} from '@/lib/time';
 import classes from './WeekCalendar.module.css';
 
 const ROW_HEIGHT = 24;
+const SQUARE = 4;
+const SQUARE_GAP = 1;
 // A status square is a few pixels; this is how many stack in one column.
-const SQUARE_PER_COL = Math.max(1, Math.floor((ROW_HEIGHT - 4) / 5));
+const SQUARE_PER_COL = Math.max(1, Math.floor((ROW_HEIGHT - 4) / (SQUARE + SQUARE_GAP)));
+
+/** Width (px) to reserve on the right of a cell so the fill never sits behind
+ *  the status squares. */
+function reservedRightPx(colCount: number): number {
+  if (colCount <= 0) return 0;
+  return colCount * SQUARE + (colCount - 1) * SQUARE_GAP + 6;
+}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -27,6 +43,8 @@ interface MarkedParticipant extends CalParticipant {
   available: boolean;
 }
 
+type Status = 'available' | 'unavailable' | 'no-answer';
+
 /**
  * Split participants into vertical columns of status squares. The first
  * participants land in the first (rightmost, via CSS row-reverse) column;
@@ -40,6 +58,12 @@ function squareColumns(
   return chunk(marked, SQUARE_PER_COL);
 }
 
+const STATUS_META: Record<Status, { label: string; color: string }> = {
+  available: { label: 'Dispo', color: 'var(--mantine-color-green-6)' },
+  unavailable: { label: 'Pas dispo', color: 'var(--mantine-color-red-6)' },
+  'no-answer': { label: 'Pas répondu', color: 'var(--mantine-color-gray-5)' },
+};
+
 interface WeekCalendarProps {
   poll: PollConfig;
   tz: string;
@@ -51,6 +75,8 @@ interface WeekCalendarProps {
   meId?: string;
   /** Slot key -> set of *other* participant ids available at that slot. */
   othersSlots?: Map<string, Set<string>>;
+  /** Ids of *other* participants who have answered at all (>=1 slot). */
+  respondedIds?: Set<string>;
   readOnly?: boolean;
 }
 
@@ -62,6 +88,7 @@ export function WeekCalendar({
   participants = [],
   meId,
   othersSlots,
+  respondedIds,
   readOnly = false,
 }: WeekCalendarProps) {
   const dates = useMemo(
@@ -79,6 +106,9 @@ export function WeekCalendar({
     active: false,
     mode: 'add',
   });
+
+  // Hover inspector (mouse only): shows everyone's status for one slot.
+  const [hover, setHover] = useState<{ key: string; rect: DOMRect } | null>(null);
 
   // Stop painting anywhere the pointer is released.
   useEffect(() => {
@@ -104,8 +134,19 @@ export function WeekCalendar({
     [mySlots, onChange],
   );
 
-  const week = weeks[weekIdx] ?? [];
+  const statusFor = useCallback(
+    (p: CalParticipant, key: string): Status => {
+      const available =
+        p.id === meId ? mySlots.has(key) : !!othersSlots?.get(key)?.has(p.id);
+      if (available) return 'available';
+      const answered =
+        p.id === meId ? mySlots.size > 0 : !!respondedIds?.has(p.id);
+      return answered ? 'unavailable' : 'no-answer';
+    },
+    [meId, mySlots, othersSlots, respondedIds],
+  );
 
+  const week = weeks[weekIdx] ?? [];
   const gridTemplateColumns = `64px repeat(${week.length}, minmax(44px, 1fr))`;
 
   const first = week[0];
@@ -118,6 +159,22 @@ export function WeekCalendar({
           .setLocale('fr')
           .toFormat('d LLL yyyy')}`
       : '';
+
+  // Position of the hover inspector, flipped to wherever there is room.
+  const hoverStyle = useMemo(() => {
+    if (!hover || typeof window === 'undefined') return null;
+    const width = 230;
+    const estHeight = 44 + participants.length * 22;
+    const gap = 8;
+    let left = hover.rect.right + gap;
+    if (left + width > window.innerWidth) left = hover.rect.left - width - gap;
+    if (left < gap) left = gap;
+    let top = hover.rect.top;
+    if (top + estHeight > window.innerHeight) {
+      top = Math.max(gap, window.innerHeight - estHeight - gap);
+    }
+    return { left, top, width };
+  }, [hover, participants.length]);
 
   return (
     <div>
@@ -148,7 +205,11 @@ export function WeekCalendar({
         )}
       </Group>
 
-      <div className={`${classes.grid} no-select`} style={{ gridTemplateColumns }}>
+      <div
+        className={`${classes.grid} no-select`}
+        style={{ gridTemplateColumns }}
+        onMouseLeave={() => setHover(null)}
+      >
         {/* Header row */}
         <div className={classes.corner} />
         {week.map((dateISO) => {
@@ -174,10 +235,7 @@ export function WeekCalendar({
           ).padStart(2, '0')}`;
           return (
             <Fragment key={`row-${rowIndex}`}>
-              <div
-                className={classes.timeCol}
-                style={{ height: ROW_HEIGHT }}
-              >
+              <div className={classes.timeCol} style={{ height: ROW_HEIGHT }}>
                 {isHour && <div className={classes.timeLabel}>{label}</div>}
               </div>
               {week.map((dateISO) => {
@@ -195,20 +253,21 @@ export function WeekCalendar({
                 const everyone =
                   participants.length > 0 && availableCount === participants.length;
 
-                // Fond : vert si tout le monde est dispo, sinon la couleur du
-                // participant connecté quand il est dispo, sinon rien.
-                const background = everyone
+                // Fill color: green if everyone is available, else the connected
+                // participant's color when available, else none.
+                const fillColor = everyone
                   ? 'var(--mantine-color-green-6)'
                   : mine
                     ? 'var(--mantine-color-indigo-6)'
-                    : 'transparent';
+                    : null;
 
-                // Carrés de statut par personne, seulement si quelqu'un est dispo.
+                // Per-person status squares, only when someone is available.
                 const columns = anyAvailable
                   ? squareColumns(participants, (p) =>
                       p.id === meId ? mine : !!otherSet?.has(p.id),
                     )
                   : null;
+                const reserved = reservedRightPx(columns?.length ?? 0);
 
                 return (
                   <div
@@ -216,12 +275,17 @@ export function WeekCalendar({
                     className={`${classes.cell} ${isHour ? classes.hourTop : ''} ${
                       readOnly ? classes.readonly : ''
                     }`}
-                    style={{ height: ROW_HEIGHT, background }}
+                    style={{ height: ROW_HEIGHT }}
+                    onMouseEnter={(e) => {
+                      if (paint.current.active) return;
+                      setHover({ key, rect: e.currentTarget.getBoundingClientRect() });
+                    }}
                     onPointerDown={
                       readOnly
                         ? undefined
                         : (e) => {
                             (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+                            setHover(null);
                             const mode = mine ? 'remove' : 'add';
                             paint.current = { active: true, mode };
                             apply(key, mode);
@@ -235,6 +299,13 @@ export function WeekCalendar({
                           }
                     }
                   >
+                    {/* Colored fill that stops before the squares strip. */}
+                    {fillColor && (
+                      <div
+                        className={classes.fill}
+                        style={{ right: reserved, background: fillColor }}
+                      />
+                    )}
                     {columns && (
                       <div className={classes.squares}>
                         {columns.map((col, ci) => (
@@ -243,10 +314,9 @@ export function WeekCalendar({
                               <span
                                 key={p.id}
                                 className={classes.sq}
-                                title={p.name}
                                 style={{
                                   background: p.available
-                                    ? 'var(--mantine-color-green-9)'
+                                    ? 'var(--mantine-color-green-6)'
                                     : 'var(--mantine-color-red-6)',
                                 }}
                               />
@@ -262,6 +332,43 @@ export function WeekCalendar({
           );
         })}
       </div>
+
+      {/* Hover inspector: everyone's status for the hovered slot. */}
+      {hover && hoverStyle && participants.length > 0 && (
+        <Paper
+          withBorder
+          shadow="md"
+          radius="md"
+          p="xs"
+          className={classes.inspector}
+          style={{ left: hoverStyle.left, top: hoverStyle.top, width: hoverStyle.width }}
+        >
+          <Text size="xs" fw={700} mb={6} tt="capitalize">
+            {formatInstant(hover.key, tz)} - {formatTime(addMinutes(hover.key, poll.granularity), tz)}
+          </Text>
+          {participants.map((p) => {
+            const meta = STATUS_META[statusFor(p, hover.key)];
+            return (
+              <Group key={p.id} justify="space-between" gap="xs" wrap="nowrap" mb={2}>
+                <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <span
+                    className={classes.dot}
+                    style={{ background: meta.color }}
+                    aria-hidden
+                  />
+                  <Text size="xs" truncate>
+                    {p.name}
+                    {p.id === meId ? ' (vous)' : ''}
+                  </Text>
+                </Group>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {meta.label}
+                </Text>
+              </Group>
+            );
+          })}
+        </Paper>
+      )}
 
       {!readOnly && (
         <Group justify="center" mt="sm">

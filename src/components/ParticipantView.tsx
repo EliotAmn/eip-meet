@@ -111,6 +111,16 @@ export function ParticipantView({ token }: { token: string }) {
     [data],
   );
 
+  // Other participants who have answered at all (for the "pas répondu" status).
+  const respondedIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!data) return set;
+    for (const p of data.participants) {
+      if (p.id !== data.me.id && p.slots.length > 0) set.add(p.id);
+    }
+    return set;
+  }, [data]);
+
   // Roster + who has answered. My own row reflects my live (unsaved) selection.
   const roster = useMemo(() => {
     if (!data) return [];
@@ -275,9 +285,9 @@ export function ParticipantView({ token }: { token: string }) {
                   Tout le monde dispo
                 </Badge>
                 <Text size="xs" c="dimmed">
-                  Carrés à droite : un par personne, vert = dispo, rouge = indispo
-                  (survolez pour le nom). Créneaux de {GRAN_LABEL[poll.granularity]}.
-                  Cliquez-glissez pour peindre.
+                  Carrés à droite : un par personne, vert = dispo, rouge = indispo.
+                  Survolez une case pour le détail. Créneaux de{' '}
+                  {GRAN_LABEL[poll.granularity]}. Cliquez-glissez pour peindre.
                 </Text>
               </Group>
               <WeekCalendar
@@ -288,6 +298,7 @@ export function ParticipantView({ token }: { token: string }) {
                 participants={calParticipants}
                 meId={me.id}
                 othersSlots={othersSlots}
+                respondedIds={respondedIds}
               />
             </Stack>
           </Tabs.Panel>
