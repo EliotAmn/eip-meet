@@ -329,9 +329,13 @@ export function WeekCalendar({
                                 className={classes.sq}
                                 style={{
                                   width: markerWidth,
+                                  // Only availability is emphasized (solid green);
+                                  // the rest is a faint ghost so it stops looking
+                                  // like a christmas tree. Details are on hover.
                                   background: p.available
                                     ? 'var(--mantine-color-green-6)'
-                                    : 'var(--mantine-color-red-6)',
+                                    : 'var(--mantine-color-gray-5)',
+                                  opacity: p.available ? 1 : 0.22,
                                 }}
                               />
                             ))}

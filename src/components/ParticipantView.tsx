@@ -285,8 +285,8 @@ export function ParticipantView({ token }: { token: string }) {
                   Tout le monde dispo
                 </Badge>
                 <Text size="xs" c="dimmed">
-                  Carrés à droite : un par personne, vert = dispo, rouge = indispo.
-                  Survolez une case pour le détail. Créneaux de{' '}
+                  Carrés à droite : un par personne, vert plein = dispo. Survolez une
+                  case pour le détail de chacun. Créneaux de{' '}
                   {GRAN_LABEL[poll.granularity]}. Cliquez-glissez pour peindre.
                 </Text>
               </Group>
