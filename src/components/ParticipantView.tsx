@@ -106,9 +106,18 @@ export function ParticipantView({ token }: { token: string }) {
     return map;
   }, [data]);
 
+  // Each participant carries the timezone they answered from; for me, use the
+  // timezone I currently have selected (live), even before saving.
   const calParticipants = useMemo(
-    () => (data ? data.participants.map((p) => ({ id: p.id, name: p.name })) : []),
-    [data],
+    () =>
+      data
+        ? data.participants.map((p) => ({
+            id: p.id,
+            name: p.name,
+            tz: p.id === data.me.id ? tz : p.timezone,
+          }))
+        : [],
+    [data, tz],
   );
 
   // Other participants who have answered at all (for the "pas répondu" status).
@@ -148,7 +157,7 @@ export function ParticipantView({ token }: { token: string }) {
     try {
       await apiFetch(`/api/p/${token}/availability`, {
         method: 'PUT',
-        body: JSON.stringify({ slots: Array.from(mySlots) }),
+        body: JSON.stringify({ slots: Array.from(mySlots), timezone: tz }),
       });
       setSavedSlots(new Set(mySlots));
       notifications.show({ color: 'teal', message: 'Disponibilités enregistrées.' });

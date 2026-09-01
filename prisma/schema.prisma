@@ -25,6 +25,7 @@ model Participant {
   id        String   @id @default(cuid())
   token     String   @unique @default(cuid())
   name      String
+  timezone  String? // IANA tz the participant last answered from
   pollId    String
   createdAt DateTime @default(now())
 

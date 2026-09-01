@@ -48,6 +48,8 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export interface CalParticipant {
   id: string;
   name: string;
+  /** IANA tz this participant answered from (null if unknown). */
+  tz?: string | null;
 }
 
 interface MarkedParticipant extends CalParticipant {
@@ -74,6 +76,21 @@ const STATUS_META: Record<Status, { label: string; color: string }> = {
   unavailable: { label: 'Pas dispo', color: 'var(--mantine-color-red-6)' },
   'no-answer': { label: 'Pas répondu', color: 'var(--mantine-color-gray-5)' },
 };
+
+/** "16:00 · Shanghai" (+ "(+1j)" when the slot falls on another day for them). */
+function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): string {
+  const utc = DateTime.fromISO(utcISO, { zone: 'utc' });
+  const theirs = utc.setZone(personTz);
+  // Compare calendar dates (not cross-zone midnights, which differ by a
+  // sub-day offset) so the day tag is a whole number.
+  const dayDiff = DateTime.fromISO(theirs.toFormat('yyyy-MM-dd')).diff(
+    DateTime.fromISO(utc.setZone(viewerTz).toFormat('yyyy-MM-dd')),
+    'days',
+  ).days;
+  const dayTag = dayDiff === 0 ? '' : ` (${dayDiff > 0 ? '+' : ''}${dayDiff}j)`;
+  const city = personTz.split('/').pop()?.replace(/_/g, ' ') ?? personTz;
+  return `${theirs.toFormat('HH:mm')}${dayTag} · ${city}`;
+}
 
 interface WeekCalendarProps {
   poll: PollConfig;
@@ -366,23 +383,31 @@ export function WeekCalendar({
           </Text>
           {participants.map((p) => {
             const meta = STATUS_META[statusFor(p, hover.key)];
+            const local = p.tz ? localSlotLabel(hover.key, p.tz, tz) : null;
             return (
-              <Group key={p.id} justify="space-between" gap="xs" wrap="nowrap" mb={2}>
-                <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                  <span
-                    className={classes.dot}
-                    style={{ background: meta.color }}
-                    aria-hidden
-                  />
-                  <Text size="xs" truncate>
-                    {p.name}
-                    {p.id === meId ? ' (vous)' : ''}
+              <div key={p.id} style={{ marginBottom: 4 }}>
+                <Group justify="space-between" gap="xs" wrap="nowrap">
+                  <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                    <span
+                      className={classes.dot}
+                      style={{ background: meta.color }}
+                      aria-hidden
+                    />
+                    <Text size="xs" truncate>
+                      {p.name}
+                      {p.id === meId ? ' (vous)' : ''}
+                    </Text>
+                  </Group>
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                    {meta.label}
                   </Text>
                 </Group>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {meta.label}
-                </Text>
-              </Group>
+                {local && (
+                  <Text size="10px" c="dimmed" style={{ marginLeft: 14 }}>
+                    {local}
+                  </Text>
+                )}
+              </div>
             );
           })}
         </Paper>

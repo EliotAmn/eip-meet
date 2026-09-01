@@ -23,6 +23,7 @@ export async function GET(
         select: {
           id: true,
           name: true,
+          timezone: true,
           slots: { select: { startUtc: true } },
         },
       },
@@ -46,6 +47,7 @@ export async function GET(
     participants: poll.participants.map((p) => ({
       id: p.id,
       name: p.name,
+      timezone: p.timezone,
       slots: p.slots.map((s) => s.startUtc),
     })),
   };

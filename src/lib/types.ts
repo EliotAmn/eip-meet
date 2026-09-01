@@ -13,6 +13,7 @@ export interface PollConfig {
 export interface ParticipantPublic {
   id: string;
   name: string;
+  timezone: string | null; // IANA tz they last answered from, if known
   slots: string[]; // ISO UTC slot starts
 }
 
