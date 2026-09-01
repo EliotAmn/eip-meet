@@ -3,7 +3,17 @@ import type { CreatePollInput } from './types';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ALLOWED_GRANULARITY = [15, 30, 60];
 
-export function validateCreatePoll(body: unknown): CreatePollInput {
+export interface PollSettingsInput {
+  title: string;
+  dateMin: string;
+  dateMax: string;
+  granularity: number;
+  dayStart: number;
+  dayEnd: number;
+}
+
+/** Validate the poll's configurable settings (shared by create and edit). */
+export function validatePollSettings(body: unknown): PollSettingsInput {
   if (typeof body !== 'object' || body === null) {
     throw new ValidationError('Corps de requête invalide.');
   }
@@ -39,6 +49,13 @@ export function validateCreatePoll(body: unknown): CreatePollInput {
     throw new ValidationError('Plage horaire invalide.');
   }
 
+  return { title, dateMin, dateMax, granularity, dayStart, dayEnd };
+}
+
+export function validateCreatePoll(body: unknown): CreatePollInput {
+  const settings = validatePollSettings(body);
+  const b = body as Record<string, unknown>;
+
   const rawParticipants = Array.isArray(b.participants) ? b.participants : [];
   const participants = Array.from(
     new Set(
@@ -49,7 +66,7 @@ export function validateCreatePoll(body: unknown): CreatePollInput {
     ),
   );
 
-  return { title, dateMin, dateMax, granularity, dayStart, dayEnd, participants };
+  return { ...settings, participants };
 }
 
 export class ValidationError extends Error {}

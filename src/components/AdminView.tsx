@@ -32,6 +32,7 @@ import { notifications } from '@mantine/notifications';
 import { apiFetch } from '@/lib/api';
 import type { AdminPageData } from '@/lib/types';
 import { CopyLinkButton } from './CopyLinkButton';
+import { SettingsEditor } from './SettingsEditor';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
 
@@ -44,6 +45,7 @@ export function AdminView({ token }: { token: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [renaming, setRenaming] = useState(false);
+  const [editingSettings, setEditingSettings] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -167,22 +169,48 @@ export function AdminView({ token }: { token: string }) {
         </Alert>
 
         <Card withBorder radius="md" padding="lg">
-          <Stack gap="sm">
-            <Text fw={600}>Paramètres</Text>
-            <Group gap="xs">
-              <Badge variant="light">
-                {poll.dateMin} → {poll.dateMax}
-              </Badge>
-              <Badge variant="light">
-                {String(poll.dayStart).padStart(2, '0')}:00-
-                {String(poll.dayEnd).padStart(2, '0')}:00 (heure locale)
-              </Badge>
-              <Badge variant="light">Créneaux de {GRAN_LABEL[poll.granularity]}</Badge>
-            </Group>
-            <Group gap="xs" mt="xs">
-              <CopyLinkButton value={adminUrl} label="Copier l'URL admin" variant="default" />
-            </Group>
-          </Stack>
+          {editingSettings ? (
+            <Stack gap="sm">
+              <Text fw={600}>Modifier les paramètres</Text>
+              <SettingsEditor
+                token={token}
+                poll={poll}
+                onCancel={() => setEditingSettings(false)}
+                onSaved={async () => {
+                  await load();
+                  setEditingSettings(false);
+                  notifications.show({ color: 'teal', message: 'Paramètres enregistrés.' });
+                }}
+              />
+            </Stack>
+          ) : (
+            <Stack gap="sm">
+              <Group justify="space-between">
+                <Text fw={600}>Paramètres</Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconPencil size={14} />}
+                  onClick={() => setEditingSettings(true)}
+                >
+                  Modifier
+                </Button>
+              </Group>
+              <Group gap="xs">
+                <Badge variant="light">
+                  {poll.dateMin} → {poll.dateMax}
+                </Badge>
+                <Badge variant="light">
+                  {String(poll.dayStart).padStart(2, '0')}:00-
+                  {String(poll.dayEnd).padStart(2, '0')}:00 (heure locale)
+                </Badge>
+                <Badge variant="light">Créneaux de {GRAN_LABEL[poll.granularity]}</Badge>
+              </Group>
+              <Group gap="xs" mt="xs">
+                <CopyLinkButton value={adminUrl} label="Copier l'URL admin" variant="default" />
+              </Group>
+            </Stack>
+          )}
         </Card>
 
         <Card withBorder radius="md" padding="lg">
