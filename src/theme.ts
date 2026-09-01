@@ -2,7 +2,7 @@
 
 import { createTheme } from '@mantine/core';
 
-// Keep to Mantine's built-in palette and scales — no hand-rolled colors.
+// Keep to Mantine's built-in palette and scales - no hand-rolled colors.
 export const theme = createTheme({
   primaryColor: 'indigo',
   defaultRadius: 'md',

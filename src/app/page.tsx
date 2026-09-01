@@ -21,7 +21,7 @@ export default function HomePage() {
             <ThemeIcon variant="light" size="md" radius="md">
               <IconCalendarClock size={18} />
             </ThemeIcon>
-            <Text fw={650}>Dispo</Text>
+            <Text fw={650}>LogiMeet</Text>
           </Group>
         </Container>
       </AppShell.Header>

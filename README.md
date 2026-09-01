@@ -1,7 +1,7 @@
-# Dispo
+# LogiMeet
 
 Petit outil privé façon Doodle / Framadate pour trouver un créneau qui convient à
-toute l'équipe — **timezone-aware**.
+toute l'équipe - **timezone-aware**.
 
 - **Page d'accueil** : bouton pour créer un sondage (titre, plage de dates, granularité
   des créneaux, plage horaire, liste de participants).
@@ -11,7 +11,7 @@ toute l'équipe — **timezone-aware**.
   disponibilités au drag (vide = pas dispo, rempli = dispo).
 - **Fuseaux horaires** : chaque personne saisit dans son fuseau local (affiché en haut).
   Les dispos sont stockées en instants absolus (UTC) et re-affichées dans le fuseau de
-  celui qui regarde — le décalage est automatique.
+  celui qui regarde - le décalage est automatique.
 - **Résultats** : tous ceux qui ont un lien voient les réponses agrégées, listées du
   créneau **le plus proche au plus lointain**, filtrables par nombre de participants.
 

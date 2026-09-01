@@ -112,7 +112,7 @@ export function WeekCalendar({
   const last = week[week.length - 1];
   const rangeLabel =
     first && last
-      ? `${DateTime.fromISO(first).setLocale('fr').toFormat('d LLL')} – ${DateTime.fromISO(
+      ? `${DateTime.fromISO(first).setLocale('fr').toFormat('d LLL')} - ${DateTime.fromISO(
           last,
         )
           .setLocale('fr')
@@ -190,10 +190,18 @@ export function WeekCalendar({
                 );
                 const mine = mySlots.has(key);
                 const otherSet = othersSlots?.get(key);
-                const anyAvailable = mine || (otherSet ? otherSet.size > 0 : false);
+                const availableCount = (mine ? 1 : 0) + (otherSet?.size ?? 0);
+                const anyAvailable = availableCount > 0;
+                const everyone =
+                  participants.length > 0 && availableCount === participants.length;
 
-                // Fond = couleur du participant connecté quand il est dispo.
-                const background = mine ? 'var(--mantine-color-indigo-6)' : 'transparent';
+                // Fond : vert si tout le monde est dispo, sinon la couleur du
+                // participant connecté quand il est dispo, sinon rien.
+                const background = everyone
+                  ? 'var(--mantine-color-green-6)'
+                  : mine
+                    ? 'var(--mantine-color-indigo-6)'
+                    : 'transparent';
 
                 // Carrés de statut par personne, seulement si quelqu'un est dispo.
                 const columns = anyAvailable
@@ -238,7 +246,7 @@ export function WeekCalendar({
                                 title={p.name}
                                 style={{
                                   background: p.available
-                                    ? 'var(--mantine-color-green-6)'
+                                    ? 'var(--mantine-color-green-9)'
                                     : 'var(--mantine-color-red-6)',
                                 }}
                               />

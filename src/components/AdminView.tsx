@@ -137,7 +137,7 @@ export function AdminView({ token }: { token: string }) {
                 {poll.dateMin} → {poll.dateMax}
               </Badge>
               <Badge variant="light">
-                {String(poll.dayStart).padStart(2, '0')}:00–
+                {String(poll.dayStart).padStart(2, '0')}:00-
                 {String(poll.dayEnd).padStart(2, '0')}:00 (heure locale)
               </Badge>
               <Badge variant="light">Créneaux de {GRAN_LABEL[poll.granularity]}</Badge>

@@ -6,8 +6,8 @@ services:
     environment:
       - DATABASE_URL=file:/data/prod.db
     volumes:
-      - dispo-data:/data
+      - logimeet-data:/data
     restart: unless-stopped
 
 volumes:
-  dispo-data:
+  logimeet-data:

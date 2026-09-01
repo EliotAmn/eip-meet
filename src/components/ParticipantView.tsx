@@ -18,6 +18,7 @@ import {
   Affix,
   Transition,
   Paper,
+  Avatar,
   rem,
 } from '@mantine/core';
 import {
@@ -26,12 +27,14 @@ import {
   IconListCheck,
   IconDeviceFloppy,
   IconWorld,
+  IconCheck,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiFetch } from '@/lib/api';
 import type { ParticipantPageData } from '@/lib/types';
 import { detectTimezone, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
+import { initials, avatarColor } from '@/lib/avatar';
 import { WeekCalendar } from './WeekCalendar';
 import { ResultsList } from './ResultsList';
 
@@ -108,6 +111,19 @@ export function ParticipantView({ token }: { token: string }) {
     [data],
   );
 
+  // Roster + who has answered. My own row reflects my live (unsaved) selection.
+  const roster = useMemo(() => {
+    if (!data) return [];
+    return data.participants.map((p) => ({
+      id: p.id,
+      name: p.name,
+      isMe: p.id === data.me.id,
+      responded: p.id === data.me.id ? mySlots.size > 0 : p.slots.length > 0,
+    }));
+  }, [data, mySlots]);
+
+  const respondedCount = roster.filter((r) => r.responded).length;
+
   // Participant list with my *current* (possibly unsaved) selection applied,
   // so the results tab reflects what I'm painting live.
   const participantsForResults = useMemo(() => {
@@ -169,7 +185,7 @@ export function ParticipantView({ token }: { token: string }) {
           </Group>
           <Title order={1}>{poll.title}</Title>
           <Text c="dimmed" mt={4}>
-            Bonjour <b>{me.name}</b> — peignez vos créneaux disponibles ci-dessous.
+            Bonjour <b>{me.name}</b> - peignez vos créneaux disponibles ci-dessous.
           </Text>
         </div>
 
@@ -201,6 +217,44 @@ export function ParticipantView({ token }: { token: string }) {
           </Group>
         </Card>
 
+        <Card withBorder radius="md" padding="md">
+          <Group justify="space-between" mb="sm">
+            <Text fw={600}>Participants</Text>
+            <Badge variant="light" color={respondedCount === roster.length ? 'teal' : 'gray'}>
+              {respondedCount}/{roster.length} ont répondu
+            </Badge>
+          </Group>
+          <Group gap="lg">
+            {roster.map((r) => (
+              <Group key={r.id} gap={8} wrap="nowrap">
+                <Avatar color={avatarColor(r.id)} radius="xl" size="md">
+                  {initials(r.name)}
+                </Avatar>
+                <div>
+                  <Text size="sm" fw={500} lineClamp={1}>
+                    {r.name}
+                    {r.isMe ? ' (vous)' : ''}
+                  </Text>
+                  {r.responded ? (
+                    <Badge
+                      size="xs"
+                      color="teal"
+                      variant="light"
+                      leftSection={<IconCheck size={10} />}
+                    >
+                      a répondu
+                    </Badge>
+                  ) : (
+                    <Badge size="xs" color="gray" variant="light">
+                      en attente
+                    </Badge>
+                  )}
+                </div>
+              </Group>
+            ))}
+          </Group>
+        </Card>
+
         <Tabs defaultValue="me" keepMounted={false}>
           <Tabs.List>
             <Tabs.Tab value="me" leftSection={<IconCalendarEvent size={16} />}>
@@ -215,18 +269,15 @@ export function ParticipantView({ token }: { token: string }) {
             <Stack gap="sm">
               <Group gap="xs">
                 <Badge variant="dot" color="indigo">
-                  Vos dispos (fond)
+                  Vos dispos
                 </Badge>
                 <Badge variant="dot" color="green">
-                  Dispo
-                </Badge>
-                <Badge variant="dot" color="red">
-                  Indispo
+                  Tout le monde dispo
                 </Badge>
                 <Text size="xs" c="dimmed">
-                  Les petits carrés à droite = statut de chaque personne (survolez pour
-                  le nom). Créneaux de {GRAN_LABEL[poll.granularity]}. Cliquez-glissez
-                  pour peindre.
+                  Carrés à droite : un par personne, vert = dispo, rouge = indispo
+                  (survolez pour le nom). Créneaux de {GRAN_LABEL[poll.granularity]}.
+                  Cliquez-glissez pour peindre.
                 </Text>
               </Group>
               <WeekCalendar

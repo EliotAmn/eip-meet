@@ -9,8 +9,14 @@ import { Notifications } from '@mantine/notifications';
 import { theme } from '@/theme';
 
 export const metadata: Metadata = {
-  title: 'Dispo — trouver un créneau',
-  description: 'Petit outil de sondage de disponibilités, timezone-aware.',
+  title: 'LogiMeet',
+  description: 'Trouvez un créneau qui va à toute votre équipe, fuseaux horaires gérés.',
+  openGraph: {
+    title: 'LogiMeet',
+    description: 'Trouvez un créneau qui va à toute votre équipe, fuseaux horaires gérés.',
+    siteName: 'LogiMeet',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

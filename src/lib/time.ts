@@ -67,14 +67,14 @@ export function formatTime(utcISO: string, tz: string): string {
   return DateTime.fromISO(utcISO, { zone: 'utc' }).setZone(tz).toFormat('HH:mm');
 }
 
-/** Full day + range label, e.g. "lun. 3 mars, 09:00 – 10:30". */
+/** Full day + range label, e.g. "lun. 3 mars, 09:00 - 10:30". */
 export function formatRange(startUtc: string, endUtc: string, tz: string, locale = 'fr'): string {
   const start = DateTime.fromISO(startUtc, { zone: 'utc' }).setZone(tz).setLocale(locale);
   const end = DateTime.fromISO(endUtc, { zone: 'utc' }).setZone(tz).setLocale(locale);
   const sameDay = start.hasSame(end, 'day');
   const startLabel = start.toFormat('cccc d LLLL, HH:mm');
   const endLabel = sameDay ? end.toFormat('HH:mm') : end.toFormat('cccc d LLLL, HH:mm');
-  return `${startLabel} – ${endLabel}`;
+  return `${startLabel} - ${endLabel}`;
 }
 
 /** Add minutes to a UTC ISO instant, returning a UTC ISO instant. */
