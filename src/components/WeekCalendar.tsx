@@ -18,14 +18,25 @@ import classes from './WeekCalendar.module.css';
 const ROW_HEIGHT = 24;
 const SQUARE = 4;
 const SQUARE_GAP = 1;
-// A status square is a few pixels; this is how many stack in one column.
+// Single column: markers are widened into bars so they read as centered.
+// As soon as we spill into 2+ columns they go back to plain squares.
+const WIDE_MARKER = 10;
+const STRIP_PADDING = 8;
+// A status marker is a few pixels tall; this is how many stack in one column.
 const SQUARE_PER_COL = Math.max(1, Math.floor((ROW_HEIGHT - 4) / (SQUARE + SQUARE_GAP)));
 
-/** Width (px) to reserve on the right of a cell so the fill never sits behind
- *  the status squares. */
+/** Marker width (px) for a given column count: wide bar when single-column,
+ *  square once it wraps to several columns. */
+function markerWidthPx(colCount: number): number {
+  return colCount === 1 ? WIDE_MARKER : SQUARE;
+}
+
+/** Width (px) to reserve on the right of a cell so the colored fill never sits
+ *  behind the status markers, sized to whatever the markers actually need. */
 function reservedRightPx(colCount: number): number {
   if (colCount <= 0) return 0;
-  return colCount * SQUARE + (colCount - 1) * SQUARE_GAP + 6;
+  const w = markerWidthPx(colCount);
+  return colCount * w + (colCount - 1) * SQUARE_GAP + STRIP_PADDING;
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -267,7 +278,9 @@ export function WeekCalendar({
                       p.id === meId ? mine : !!otherSet?.has(p.id),
                     )
                   : null;
-                const reserved = reservedRightPx(columns?.length ?? 0);
+                const colCount = columns?.length ?? 0;
+                const markerWidth = markerWidthPx(colCount);
+                const reserved = reservedRightPx(colCount);
 
                 return (
                   <div
@@ -307,7 +320,7 @@ export function WeekCalendar({
                       />
                     )}
                     {columns && (
-                      <div className={classes.squares}>
+                      <div className={classes.squares} style={{ width: reserved }}>
                         {columns.map((col, ci) => (
                           <div className={classes.sqCol} key={ci}>
                             {col.map((p) => (
@@ -315,6 +328,7 @@ export function WeekCalendar({
                                 key={p.id}
                                 className={classes.sq}
                                 style={{
+                                  width: markerWidth,
                                   background: p.available
                                     ? 'var(--mantine-color-green-6)'
                                     : 'var(--mantine-color-red-6)',
