@@ -1,0 +1,46 @@
+// Shared shapes between API routes and client components.
+
+export interface PollConfig {
+  id: string;
+  title: string;
+  dateMin: string; // YYYY-MM-DD
+  dateMax: string; // YYYY-MM-DD
+  granularity: number; // minutes
+  dayStart: number; // hour, local
+  dayEnd: number; // hour, local
+}
+
+export interface ParticipantPublic {
+  id: string;
+  name: string;
+  slots: string[]; // ISO UTC slot starts
+}
+
+// Payload for the participant-facing page.
+export interface ParticipantPageData {
+  poll: PollConfig;
+  me: { id: string; name: string };
+  participants: ParticipantPublic[];
+}
+
+export interface AdminParticipant {
+  id: string;
+  name: string;
+  token: string;
+  slotCount: number;
+}
+
+export interface AdminPageData {
+  poll: PollConfig;
+  participants: AdminParticipant[];
+}
+
+export interface CreatePollInput {
+  title: string;
+  dateMin: string;
+  dateMax: string;
+  granularity: number;
+  dayStart: number;
+  dayEnd: number;
+  participants: string[];
+}

@@ -1,0 +1,15 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Prevent text selection while painting availability on the calendar grid. */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}

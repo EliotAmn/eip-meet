@@ -1,0 +1,87 @@
+.grid {
+  display: grid;
+  width: 100%;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  touch-action: none; /* let us paint on touch without scrolling the grid */
+}
+
+.corner,
+.dayHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.dayHead {
+  border-left: 1px solid var(--mantine-color-default-border);
+}
+
+.timeLabel {
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+  text-align: right;
+  padding-right: 6px;
+  transform: translateY(-7px);
+  white-space: nowrap;
+}
+
+.timeCol {
+  border-right: 1px solid var(--mantine-color-default-border);
+}
+
+.cell {
+  position: relative;
+  border-left: 1px solid var(--mantine-color-default-border);
+  border-top: 1px solid var(--mantine-color-gray-1);
+  cursor: pointer;
+}
+
+:global([data-mantine-color-scheme='dark']) .cell {
+  border-top-color: var(--mantine-color-dark-6);
+}
+
+.cell.hourTop {
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.cell.readonly {
+  cursor: default;
+}
+
+.cell:hover:not(.readonly) {
+  outline: 1px solid var(--mantine-color-indigo-4);
+  outline-offset: -1px;
+}
+
+/* Per-person status squares, pinned to the right edge of the cell.
+   Columns fill from the right; overflow adds columns to the left. */
+.squares {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.sqCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sq {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  cursor: help;
+}

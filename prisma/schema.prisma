@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Poll {
+  id          String   @id @default(cuid())
+  adminToken  String   @unique @default(cuid())
+  title       String
+  dateMin     String // YYYY-MM-DD (inclusive)
+  dateMax     String // YYYY-MM-DD (inclusive)
+  granularity Int // slot length in minutes (15 | 30 | 60)
+  dayStart    Int // visible window start hour, local time (0-23)
+  dayEnd      Int // visible window end hour, local time (1-24)
+  createdAt   DateTime @default(now())
+
+  participants Participant[]
+}
+
+model Participant {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  name      String
+  pollId    String
+  createdAt DateTime @default(now())
+
+  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  slots Slot[]
+}
+
+model Slot {
+  id            String @id @default(cuid())
+  participantId String
+  startUtc      String // ISO-8601 UTC instant of the slot start
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, startUtc])
+}
