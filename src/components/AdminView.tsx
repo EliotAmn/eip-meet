@@ -24,6 +24,9 @@ import {
   IconUserPlus,
   IconInfoCircle,
   IconExternalLink,
+  IconPencil,
+  IconCheck,
+  IconX,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiFetch } from '@/lib/api';
@@ -38,6 +41,9 @@ export function AdminView({ token }: { token: string }) {
   const [origin, setOrigin] = useState('');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -74,6 +80,37 @@ export function AdminView({ token }: { token: string }) {
       });
     } finally {
       setAdding(false);
+    }
+  }
+
+  function startEdit(id: string, name: string) {
+    setEditingId(id);
+    setEditName(name);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditName('');
+  }
+
+  async function saveEdit(id: string) {
+    const name = editName.trim();
+    if (!name) return;
+    setRenaming(true);
+    try {
+      await apiFetch(`/api/admin/${token}/participants`, {
+        method: 'PATCH',
+        body: JSON.stringify({ id, name }),
+      });
+      cancelEdit();
+      await load();
+    } catch (err) {
+      notifications.show({
+        color: 'red',
+        message: err instanceof Error ? err.message : 'Erreur.',
+      });
+    } finally {
+      setRenaming(false);
     }
   }
 
@@ -168,7 +205,55 @@ export function AdminView({ token }: { token: string }) {
                       const link = origin ? `${origin}/p/${p.token}` : '';
                       return (
                         <Table.Tr key={p.id}>
-                          <Table.Td fw={500}>{p.name}</Table.Td>
+                          <Table.Td>
+                            {editingId === p.id ? (
+                              <Group gap="xs" wrap="nowrap">
+                                <TextInput
+                                  size="xs"
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.currentTarget.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEdit(p.id);
+                                    if (e.key === 'Escape') cancelEdit();
+                                  }}
+                                  autoFocus
+                                  style={{ minWidth: 140 }}
+                                />
+                                <ActionIcon
+                                  size="sm"
+                                  variant="light"
+                                  color="teal"
+                                  loading={renaming}
+                                  onClick={() => saveEdit(p.id)}
+                                  aria-label="Valider"
+                                >
+                                  <IconCheck size={14} />
+                                </ActionIcon>
+                                <ActionIcon
+                                  size="sm"
+                                  variant="subtle"
+                                  color="gray"
+                                  onClick={cancelEdit}
+                                  aria-label="Annuler"
+                                >
+                                  <IconX size={14} />
+                                </ActionIcon>
+                              </Group>
+                            ) : (
+                              <Group gap={4} wrap="nowrap">
+                                <Text fw={500}>{p.name}</Text>
+                                <ActionIcon
+                                  size="sm"
+                                  variant="subtle"
+                                  color="gray"
+                                  onClick={() => startEdit(p.id, p.name)}
+                                  aria-label="Renommer"
+                                >
+                                  <IconPencil size={14} />
+                                </ActionIcon>
+                              </Group>
+                            )}
+                          </Table.Td>
                           <Table.Td>
                             {p.slotCount > 0 ? (
                               <Badge color="teal" variant="light">
