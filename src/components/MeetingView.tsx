@@ -49,10 +49,10 @@ import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
-// My calendar-derived status: not editable here, so shown discreetly.
-const HATCH =
-  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 22%, transparent) 0 4px, transparent 4px 8px)';
-const SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 16%, transparent)';
+// My own unavailabilities (from my calendar): shown as vividly as in my
+// calendar, with the same colors. Only the group stripe is muted.
+const MY_BUSY_FILL = 'var(--mantine-color-red-7)';
+const MY_SOFT_FILL = 'var(--mantine-color-yellow-5)';
 
 export function periodLabel(dateMin: string, dateMax: string) {
   const a = DateTime.fromISO(dateMin).setLocale('fr');
@@ -130,7 +130,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
     if (!me || !me.answered) return null;
     const s = statuses.get(key)?.get(me.id);
     if (s === 'yes') return null;
-    return s === 'if_needed' ? SOFT_FILL : HATCH;
+    return s === 'if_needed' ? MY_SOFT_FILL : MY_BUSY_FILL;
   };
 
   async function act(fn: () => Promise<unknown>, message?: string) {
@@ -417,7 +417,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Stack gap="sm">
             {myMember && (
               <Text size="xs" c="dimmed">
-                Vos dispos viennent de votre calendrier (hachuré = indisponible, jaune = si
+                Vos indispos viennent de votre calendrier (rouge = indisponible, jaune = si
                 besoin) :{' '}
                 <Anchor component={Link} href="/" size="xs">
                   le modifier

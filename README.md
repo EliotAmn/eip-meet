@@ -36,8 +36,10 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 - **Survol d'un créneau** : statut de chaque personne et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages triées de la plus proche à la plus lointaine,
   filtrables par nombre minimum de participants.
-- Seul ce que l'utilisateur saisit est affiché de façon vive ; les informations globales
-  ou non modifiables sur la page sont atténuées.
+- Ce qui vous concerne est affiché de façon vive : vos indisponibilités (rouge = indisponible,
+  jaune = si besoin, mêmes couleurs que dans votre calendrier) ou, pour un invité, ce qu'il
+  peint. Les informations globales (liseré du groupe, bandeaux de réunion dans le calendrier)
+  sont atténuées.
 
 ### Fuseaux horaires
 Tout est stocké en instants absolus (UTC) et réaffiché dans le fuseau de celui qui regarde.
