@@ -58,14 +58,26 @@ function fmtDate(iso: string) {
   return DateTime.fromISO(iso).setLocale('fr').toFormat('d LLL yyyy');
 }
 
+// Auth.js error codes (?error=...) -> readable message.
+const AUTH_ERRORS: Record<string, string> = {
+  OAuthCallbackError:
+    "Le fournisseur (Google / Microsoft) a renvoyé une erreur pendant la connexion. Le détail est dans les logs du serveur (ligne « [auth][error] »).",
+  OAuthAccountNotLinked:
+    'Cet email est déjà utilisé par un compte créé avec un autre fournisseur. Connectez-vous avec celui-là.',
+  AccessDenied: 'Accès refusé.',
+  Configuration: "Erreur de configuration de l'authentification côté serveur.",
+};
+
 export function HomeShell({
   user,
   providers,
   polls,
+  authError = null,
 }: {
   user: HomeUser | null;
   providers: { id: string; name: string }[];
   polls: HomePoll[];
+  authError?: string | null;
 }) {
   const displayName = user?.name || user?.email || 'Mon compte';
 
@@ -142,6 +154,14 @@ export function HomeShell({
                       invités par lien n&apos;ont pas besoin de compte.
                     </Text>
                   </div>
+                  {authError && (
+                    <Alert color="red" variant="light" title="Connexion impossible">
+                      {AUTH_ERRORS[authError] ?? 'La connexion a échoué.'}{' '}
+                      <Text span size="xs" c="dimmed">
+                        (code : {authError})
+                      </Text>
+                    </Alert>
+                  )}
                   {providers.length === 0 ? (
                     <Alert
                       color="yellow"
@@ -150,9 +170,10 @@ export function HomeShell({
                       style={{ overflowWrap: 'anywhere' }}
                     >
                       Aucun fournisseur de connexion n&apos;est configuré. Renseignez{' '}
-                      <Code>AUTH_GOOGLE_ID</Code> / <Code>AUTH_GOOGLE_SECRET</Code> ou{' '}
-                      <Code>AUTH_MICROSOFT_ENTRA_ID_ID</Code> /{' '}
-                      <Code>AUTH_MICROSOFT_ENTRA_ID_SECRET</Code> dans le <Code>.env</Code>.
+                      <Code>MICROSOFT_TENANT_ID</Code>, <Code>MICROSOFT_CLIENT_ID</Code>,{' '}
+                      <Code>MICROSOFT_CLIENT_SECRET</Code> et/ou{' '}
+                      <Code>GOOGLE_CLIENT_ID</Code>, <Code>GOOGLE_CLIENT_SECRET</Code> dans
+                      le <Code>.env</Code>.
                     </Alert>
                   ) : (
                     providers.map((p) => (

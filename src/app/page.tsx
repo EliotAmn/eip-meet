@@ -4,7 +4,12 @@ import { HomeShell, type HomePoll, type HomeUser } from '@/components/HomeShell'
 
 export const dynamic = 'force-dynamic';
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const session = await auth();
   const sessionUser = session?.user;
 
@@ -33,5 +38,12 @@ export default async function HomePage() {
     }));
   }
 
-  return <HomeShell user={user} providers={enabledProviders} polls={polls} />;
+  return (
+    <HomeShell
+      user={user}
+      providers={enabledProviders}
+      polls={polls}
+      authError={user ? null : (error ?? null)}
+    />
+  );
 }
