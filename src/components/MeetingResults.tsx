@@ -101,7 +101,7 @@ export function MeetingResults({
             // Same colors as the grid: green = everyone "Dispo", yellow = everyone
             // but some only "si besoin".
             const hue = r.ifNeeded > 0 ? 'yellow' : 'green';
-            const shade = hue === 'yellow' ? 5 : 9;
+            const shade = hue === 'yellow' ? 2 : 3; // light = matches, like the grid
             const accent = everyone ? `${hue}.${shade}` : 'gray';
             const window = Date.parse(r.endUtc) - Date.parse(r.startUtc);
             return (

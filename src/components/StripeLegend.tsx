@@ -25,11 +25,11 @@ export function StripeLegend() {
   return (
     <Group gap="md">
       <Group gap={6}>
-        <CheckSwatch bg="var(--mantine-color-green-9)" fg="var(--mantine-color-green-3)" />
+        <CheckSwatch bg="var(--mantine-color-green-3)" fg="var(--mantine-color-green-9)" />
         <Text size="xs">tout le monde est dispo</Text>
       </Group>
       <Group gap={6}>
-        <CheckSwatch bg="var(--mantine-color-yellow-5)" fg="var(--mantine-color-dark-7)" />
+        <CheckSwatch bg="var(--mantine-color-yellow-2)" fg="var(--mantine-color-yellow-9)" />
         <Text size="xs">tout le monde, dont « si besoin »</Text>
       </Group>
       <Group gap={6}>

@@ -36,9 +36,12 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 
 ### Lecture des résultats
 Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la minute près :
-- **✓ sur fond vert foncé** : la plage dans laquelle la réunion tient avec tout le monde
+- **✓ sur fond vert clair** : la plage dans laquelle la réunion tient avec tout le monde
   « Dispo » (ex. 8h15 - 10h15).
-- **✓ sur fond jaune** : tout le monde est disponible, dont au moins un « si besoin ».
+- **✓ sur fond jaune clair** : tout le monde est disponible, dont au moins un « si besoin ».
+- Convention de couleurs : **clair = ce qui convient à tout le monde**, **foncé = ce que
+  l'invité a peint** (vert foncé = dispo, jaune foncé = si besoin) ; les résultats sont
+  légèrement en retrait pour laisser voir sa propre peinture.
 - Sinon, un **liseré** atténué à gauche : orange = il manque 1 personne, rouge = il en
   manque plus.
 - **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de

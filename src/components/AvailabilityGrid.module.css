@@ -63,10 +63,18 @@
   pointer-events: none;
 }
 
+/* Results are LIGHT (what matches); the viewer's own painting is DARK.
+   Inset on the sides so one's own painting stays visible around a match. */
+.match,
+.maybe {
+  left: 4px;
+  right: 4px;
+}
+
 /* Result: everyone available for the whole meeting. */
 .match {
-  background: var(--mantine-color-green-9);
-  color: var(--mantine-color-green-3);
+  background: var(--mantine-color-green-3);
+  color: var(--mantine-color-green-9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,8 +83,8 @@
 
 /* Result: everyone available, some only "si besoin". */
 .maybe {
-  background: var(--mantine-color-yellow-5);
-  color: var(--mantine-color-dark-7);
+  background: var(--mantine-color-yellow-2);
+  color: var(--mantine-color-yellow-9);
   display: flex;
   align-items: center;
   justify-content: center;

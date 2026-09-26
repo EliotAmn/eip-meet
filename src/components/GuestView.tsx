@@ -147,8 +147,9 @@ export function GuestView({ token }: { token: string }) {
         {
           startMin: a,
           endMin: b,
+          // My painting is dark; what matches for everyone is drawn light on top.
           background:
-            i.status === 'yes' ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-yellow-5)',
+            i.status === 'yes' ? 'var(--mantine-color-green-8)' : 'var(--mantine-color-yellow-7)',
         },
       ];
     });
@@ -262,6 +263,23 @@ export function GuestView({ token }: { token: string }) {
                 <Text size="xs" c="dimmed">
                   Cliquez-glissez pour peindre vos dispos. Réunion de{' '}
                   {formatDuration(meeting.duration)}.
+                </Text>
+              </Group>
+              <Group gap="md">
+                <Text size="xs" c="dimmed">
+                  Vos dispos :
+                </Text>
+                {[
+                  { color: 'var(--mantine-color-green-8)', label: 'dispo' },
+                  { color: 'var(--mantine-color-yellow-7)', label: 'si besoin' },
+                ].map((s) => (
+                  <Group key={s.label} gap={6}>
+                    <span style={{ width: 18, height: 14, borderRadius: 3, background: s.color }} />
+                    <Text size="xs">{s.label}</Text>
+                  </Group>
+                ))}
+                <Text size="xs" c="dimmed">
+                  (foncé = ce que vous peignez, clair = ce qui convient à tout le monde)
                 </Text>
               </Group>
               <StripeLegend />
