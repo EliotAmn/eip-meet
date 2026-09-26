@@ -22,3 +22,6 @@ next-env.d.ts
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Local conversation handoff notes
+HANDOFF.md
