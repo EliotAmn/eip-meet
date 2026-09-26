@@ -37,6 +37,7 @@ model Slot {
   id            String @id @default(cuid())
   participantId String
   startUtc      String // ISO-8601 UTC instant of the slot start
+  status        String @default("yes") // "yes" | "if_needed"
 
   participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 

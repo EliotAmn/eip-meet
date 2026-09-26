@@ -10,11 +10,18 @@ export interface PollConfig {
   dayEnd: number; // hour, local
 }
 
+export type SlotStatus = 'yes' | 'if_needed';
+
+export interface SlotEntry {
+  start: string; // ISO UTC slot start
+  status: SlotStatus;
+}
+
 export interface ParticipantPublic {
   id: string;
   name: string;
   timezone: string | null; // IANA tz they last answered from, if known
-  slots: string[]; // ISO UTC slot starts
+  slots: SlotEntry[];
 }
 
 // Payload for the participant-facing page.

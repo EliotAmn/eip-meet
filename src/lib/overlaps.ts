@@ -7,21 +7,24 @@ export interface AvailabilityRange {
   ids: string[];
   names: string[];
   count: number;
+  ifNeeded: number; // how many of them are only available "si besoin"
 }
 
 /**
  * Build the map: slot start (UTC ISO) -> participants available at that slot.
+ * "Available" means yes OR si-besoin; ifNeeded tracks the reluctant ones.
  */
 export function slotAvailabilityMap(
   participants: ParticipantPublic[],
-): Map<string, { ids: string[]; names: string[] }> {
-  const map = new Map<string, { ids: string[]; names: string[] }>();
+): Map<string, { ids: string[]; names: string[]; ifNeeded: number }> {
+  const map = new Map<string, { ids: string[]; names: string[]; ifNeeded: number }>();
   for (const p of participants) {
     for (const slot of p.slots) {
-      const entry = map.get(slot) ?? { ids: [], names: [] };
+      const entry = map.get(slot.start) ?? { ids: [], names: [], ifNeeded: 0 };
       entry.ids.push(p.id);
       entry.names.push(p.name);
-      map.set(slot, entry);
+      if (slot.status === 'if_needed') entry.ifNeeded += 1;
+      map.set(slot.start, entry);
     }
   }
   return map;
@@ -65,6 +68,7 @@ export function computeAvailabilityRanges(
       ids: pairs.map((p) => p.id),
       names: pairs.map((p) => p.name),
       count: entry.ids.length,
+      ifNeeded: entry.ifNeeded,
     };
     currentSig = sig;
   }

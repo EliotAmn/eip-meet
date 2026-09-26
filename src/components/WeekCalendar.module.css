@@ -44,12 +44,20 @@
   touch-action: none;
 }
 
-/* Colored fill; inline `right` leaves the squares strip uncolored. */
+/* My-status fill (full cell). */
 .fill {
   position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Aggregate availability, as a stripe along the left edge of the slot. */
+.stripe {
+  position: absolute;
   top: 0;
-  left: 0;
   bottom: 0;
+  left: 0;
+  width: 5px;
   pointer-events: none;
 }
 
@@ -72,34 +80,6 @@
 
 /* Per-person status squares, pinned to the right edge of the cell.
    Columns fill from the right; overflow adds columns to the left. */
-/* Markers occupy a reserved strip on the right (width set inline) and are
-   centered both axes; the colored fill stops exactly where this strip begins. */
-.squares {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: row-reverse;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  pointer-events: none; /* let hover/paint events reach the cell */
-}
-
-.sqCol {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-}
-
-.sq {
-  display: block;
-  height: 4px;
-  border-radius: 1px;
-}
-
 /* Hover inspector floating panel. */
 .inspector {
   position: fixed;

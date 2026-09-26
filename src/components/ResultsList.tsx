@@ -111,6 +111,13 @@ export function ResultsList({ participants, granularity, tz }: ResultsListProps)
         <Stack gap="xs">
           {filtered.map((r) => {
             const everyone = r.count === total;
+            // green = everyone & all "yes"; yellow = everyone but some "si besoin".
+            const accent = everyone
+              ? r.ifNeeded > 0
+                ? 'yellow'
+                : 'green'
+              : 'gray';
+            const highlighted = everyone;
             return (
               <Paper
                 key={`${r.startUtc}-${r.ids.join(',')}`}
@@ -118,8 +125,8 @@ export function ResultsList({ participants, granularity, tz }: ResultsListProps)
                 p="md"
                 radius="md"
                 style={
-                  everyone
-                    ? { borderColor: 'var(--mantine-color-teal-5)' }
+                  highlighted
+                    ? { borderColor: `var(--mantine-color-${accent}-5)` }
                     : undefined
                 }
               >
@@ -128,12 +135,17 @@ export function ResultsList({ participants, granularity, tz }: ResultsListProps)
                     <Text fw={600} tt="capitalize">
                       {formatRange(r.startUtc, r.endUtc, tz)}
                     </Text>
+                    {everyone && r.ifNeeded > 0 && (
+                      <Text size="xs" c="yellow.7" mt={2}>
+                        Tout le monde, mais {r.ifNeeded} « si besoin »
+                      </Text>
+                    )}
                     <Group gap={6} mt={6}>
                       {r.names.map((name, i) => (
                         <Badge
                           key={`${r.ids[i]}`}
                           variant="light"
-                          color={everyone ? 'teal' : 'indigo'}
+                          color={everyone ? accent : 'indigo'}
                           size="sm"
                         >
                           {name}
@@ -144,7 +156,7 @@ export function ResultsList({ participants, granularity, tz }: ResultsListProps)
                   <Badge
                     size="lg"
                     variant={everyone ? 'filled' : 'light'}
-                    color={everyone ? 'teal' : 'gray'}
+                    color={everyone ? accent : 'gray'}
                     leftSection={<IconUsers size={14} />}
                   >
                     {r.count}/{total}

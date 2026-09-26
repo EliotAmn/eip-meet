@@ -37,15 +37,17 @@ export async function PUT(
     return NextResponse.json({ error: 'Champ "slots" manquant.' }, { status: 400 });
   }
 
-  // Normalize + validate: keep only well-formed UTC instants, dedup.
-  const slots = Array.from(
-    new Set(
-      rawSlots
-        .filter((s): s is string => typeof s === 'string')
-        .filter((s) => ISO_UTC_RE.test(s)),
-    ),
-  );
-  if (slots.length > 20000) {
+  // Normalize + validate: keep well-formed UTC instants with a valid status,
+  // dedup on the instant (last one wins).
+  const byStart = new Map<string, 'yes' | 'if_needed'>();
+  for (const raw of rawSlots) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const start = (raw as { start?: unknown }).start;
+    const status = (raw as { status?: unknown }).status;
+    if (typeof start !== 'string' || !ISO_UTC_RE.test(start)) continue;
+    byStart.set(start, status === 'if_needed' ? 'if_needed' : 'yes');
+  }
+  if (byStart.size > 20000) {
     return NextResponse.json({ error: 'Trop de créneaux.' }, { status: 400 });
   }
 
@@ -56,12 +58,16 @@ export async function PUT(
   await prisma.$transaction([
     prisma.slot.deleteMany({ where: { participantId: me.id } }),
     prisma.slot.createMany({
-      data: slots.map((startUtc) => ({ participantId: me.id, startUtc })),
+      data: Array.from(byStart, ([startUtc, status]) => ({
+        participantId: me.id,
+        startUtc,
+        status,
+      })),
     }),
     ...(timezone
       ? [prisma.participant.update({ where: { id: me.id }, data: { timezone } })]
       : []),
   ]);
 
-  return NextResponse.json({ ok: true, count: slots.length });
+  return NextResponse.json({ ok: true, count: byStart.size });
 }

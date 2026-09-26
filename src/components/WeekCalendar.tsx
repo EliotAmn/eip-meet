@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Group, ActionIcon, Text, Button, Paper } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
-import type { PollConfig } from '@/lib/types';
+import type { PollConfig, SlotStatus } from '@/lib/types';
 import {
   addMinutes,
   cellToUtc,
@@ -16,34 +16,8 @@ import {
 import classes from './WeekCalendar.module.css';
 
 const ROW_HEIGHT = 24;
-const SQUARE = 4;
-const SQUARE_GAP = 1;
-// Single column: markers are widened into bars so they read as centered.
-// As soon as we spill into 2+ columns they go back to plain squares.
-const WIDE_MARKER = 10;
-const STRIP_PADDING = 8;
-// A status marker is a few pixels tall; this is how many stack in one column.
-const SQUARE_PER_COL = Math.max(1, Math.floor((ROW_HEIGHT - 4) / (SQUARE + SQUARE_GAP)));
 
-/** Marker width (px) for a given column count: wide bar when single-column,
- *  square once it wraps to several columns. */
-function markerWidthPx(colCount: number): number {
-  return colCount === 1 ? WIDE_MARKER : SQUARE;
-}
-
-/** Width (px) to reserve on the right of a cell so the colored fill never sits
- *  behind the status markers, sized to whatever the markers actually need. */
-function reservedRightPx(colCount: number): number {
-  if (colCount <= 0) return 0;
-  const w = markerWidthPx(colCount);
-  return colCount * w + (colCount - 1) * SQUARE_GAP + STRIP_PADDING;
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+export type PaintMode = 'yes' | 'if_needed' | 'erase';
 
 export interface CalParticipant {
   id: string;
@@ -52,37 +26,25 @@ export interface CalParticipant {
   tz?: string | null;
 }
 
-interface MarkedParticipant extends CalParticipant {
-  available: boolean;
-}
+type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'no-answer';
 
-type Status = 'available' | 'unavailable' | 'no-answer';
-
-/**
- * Split participants into vertical columns of status squares. The first
- * participants land in the first (rightmost, via CSS row-reverse) column;
- * overflow spills into further columns drawn to the left.
- */
-function squareColumns(
-  participants: CalParticipant[],
-  isAvailable: (p: CalParticipant) => boolean,
-): MarkedParticipant[][] {
-  const marked = participants.map((p) => ({ ...p, available: isAvailable(p) }));
-  return chunk(marked, SQUARE_PER_COL);
-}
-
-const STATUS_META: Record<Status, { label: string; color: string }> = {
-  available: { label: 'Dispo', color: 'var(--mantine-color-green-6)' },
+const STATUS_META: Record<DisplayStatus, { label: string; color: string }> = {
+  yes: { label: 'Dispo', color: 'var(--mantine-color-green-6)' },
+  if_needed: { label: 'Si besoin', color: 'var(--mantine-color-yellow-5)' },
   unavailable: { label: 'Pas dispo', color: 'var(--mantine-color-red-6)' },
   'no-answer': { label: 'Pas répondu', color: 'var(--mantine-color-gray-5)' },
 };
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 /** "16:00 · Shanghai" (+ "(+1j)" when the slot falls on another day for them). */
 function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): string {
   const utc = DateTime.fromISO(utcISO, { zone: 'utc' });
   const theirs = utc.setZone(personTz);
-  // Compare calendar dates (not cross-zone midnights, which differ by a
-  // sub-day offset) so the day tag is a whole number.
   const dayDiff = DateTime.fromISO(theirs.toFormat('yyyy-MM-dd')).diff(
     DateTime.fromISO(utc.setZone(viewerTz).toFormat('yyyy-MM-dd')),
     'days',
@@ -95,15 +57,16 @@ function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): str
 interface WeekCalendarProps {
   poll: PollConfig;
   tz: string;
-  mySlots: Set<string>;
-  onChange?: (next: Set<string>) => void;
-  /** All participants, in poll order, for the per-cell status squares. */
+  mySlots: Map<string, SlotStatus>;
+  onChange?: (next: Map<string, SlotStatus>) => void;
+  paintMode?: PaintMode;
+  /** All participants, in poll order. */
   participants?: CalParticipant[];
   /** Id of the connected participant (its live status comes from mySlots). */
   meId?: string;
-  /** Slot key -> set of *other* participant ids available at that slot. */
-  othersSlots?: Map<string, Set<string>>;
-  /** Ids of *other* participants who have answered at all (>=1 slot). */
+  /** Slot key -> (participant id -> status) for everyone except me. */
+  othersStatus?: Map<string, Map<string, SlotStatus>>;
+  /** Ids of *other* participants who have answered at all. */
   respondedIds?: Set<string>;
   readOnly?: boolean;
 }
@@ -113,9 +76,10 @@ export function WeekCalendar({
   tz,
   mySlots,
   onChange,
+  paintMode = 'yes',
   participants = [],
   meId,
-  othersSlots,
+  othersStatus,
   respondedIds,
   readOnly = false,
 }: WeekCalendarProps) {
@@ -130,18 +94,22 @@ export function WeekCalendar({
     [poll.dayStart, poll.dayEnd, poll.granularity],
   );
 
-  const paint = useRef<{ active: boolean; mode: 'add' | 'remove' }>({
-    active: false,
-    mode: 'add',
-  });
+  const week = weeks[weekIdx] ?? [];
 
-  // Hover inspector (mouse only): shows everyone's status for one slot.
+  // Block painting: snapshot the state on press, then re-apply a rectangle from
+  // the anchor cell to the current cell on every move (no holes on fast drags).
+  const paint = useRef<{
+    active: boolean;
+    action: PaintMode;
+    anchor: { day: number; row: number };
+    snapshot: Map<string, SlotStatus>;
+  } | null>(null);
+
   const [hover, setHover] = useState<{ key: string; rect: DOMRect } | null>(null);
 
-  // Stop painting anywhere the pointer is released.
   useEffect(() => {
     const stop = () => {
-      paint.current.active = false;
+      if (paint.current) paint.current.active = false;
     };
     window.addEventListener('pointerup', stop);
     window.addEventListener('pointercancel', stop);
@@ -151,30 +119,72 @@ export function WeekCalendar({
     };
   }, []);
 
-  const apply = useCallback(
-    (key: string, mode: 'add' | 'remove') => {
-      if (!onChange) return;
-      const next = new Set(mySlots);
-      if (mode === 'add') next.add(key);
-      else next.delete(key);
+  const applyRect = useCallback(
+    (b: { day: number; row: number }) => {
+      const p = paint.current;
+      if (!p || !onChange) return;
+      const dMin = Math.min(p.anchor.day, b.day);
+      const dMax = Math.max(p.anchor.day, b.day);
+      const rMin = Math.min(p.anchor.row, b.row);
+      const rMax = Math.max(p.anchor.row, b.row);
+      const next = new Map(p.snapshot);
+      for (let d = dMin; d <= dMax; d += 1) {
+        const dateISO = week[d];
+        if (!dateISO) continue;
+        for (let r = rMin; r <= rMax; r += 1) {
+          const key = cellToUtc(dateISO, r, poll.dayStart, poll.granularity, tz);
+          if (p.action === 'erase') next.delete(key);
+          else next.set(key, p.action);
+        }
+      }
       onChange(next);
     },
-    [mySlots, onChange],
+    [onChange, week, poll.dayStart, poll.granularity, tz],
+  );
+
+  const startPaint = useCallback(
+    (day: number, row: number) => {
+      if (readOnly || !onChange) return;
+      paint.current = {
+        active: true,
+        action: paintMode,
+        anchor: { day, row },
+        snapshot: new Map(mySlots),
+      };
+      setHover(null);
+      applyRect({ day, row });
+    },
+    [readOnly, onChange, paintMode, mySlots, applyRect],
+  );
+
+  // Track the cell under the pointer during a drag, even on fast moves/touch.
+  const onGridPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!paint.current?.active) return;
+      const el = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest('[data-cell]') as HTMLElement | null;
+      if (!el) return;
+      const day = Number(el.dataset.day);
+      const row = Number(el.dataset.row);
+      if (Number.isInteger(day) && Number.isInteger(row)) applyRect({ day, row });
+    },
+    [applyRect],
   );
 
   const statusFor = useCallback(
-    (p: CalParticipant, key: string): Status => {
-      const available =
-        p.id === meId ? mySlots.has(key) : !!othersSlots?.get(key)?.has(p.id);
-      if (available) return 'available';
+    (p: CalParticipant, key: string): DisplayStatus => {
+      const raw =
+        p.id === meId ? mySlots.get(key) : othersStatus?.get(key)?.get(p.id);
+      if (raw === 'yes') return 'yes';
+      if (raw === 'if_needed') return 'if_needed';
       const answered =
         p.id === meId ? mySlots.size > 0 : !!respondedIds?.has(p.id);
       return answered ? 'unavailable' : 'no-answer';
     },
-    [meId, mySlots, othersSlots, respondedIds],
+    [meId, mySlots, othersStatus, respondedIds],
   );
 
-  const week = weeks[weekIdx] ?? [];
   const gridTemplateColumns = `64px repeat(${week.length}, minmax(44px, 1fr))`;
 
   const first = week[0];
@@ -188,11 +198,10 @@ export function WeekCalendar({
           .toFormat('d LLL yyyy')}`
       : '';
 
-  // Position of the hover inspector, flipped to wherever there is room.
   const hoverStyle = useMemo(() => {
     if (!hover || typeof window === 'undefined') return null;
-    const width = 230;
-    const estHeight = 44 + participants.length * 22;
+    const width = 240;
+    const estHeight = 44 + participants.length * 30;
     const gap = 8;
     let left = hover.rect.right + gap;
     if (left + width > window.innerWidth) left = hover.rect.left - width - gap;
@@ -236,6 +245,7 @@ export function WeekCalendar({
       <div
         className={`${classes.grid} no-select`}
         style={{ gridTemplateColumns }}
+        onPointerMove={onGridPointerMove}
         onMouseLeave={() => setHover(null)}
       >
         {/* Header row */}
@@ -254,7 +264,6 @@ export function WeekCalendar({
           );
         })}
 
-        {/* Body: for each row, a time label then one cell per day */}
         {Array.from({ length: rows }).map((_, rowIndex) => {
           const minutesTotal = poll.dayStart * 60 + rowIndex * poll.granularity;
           const isHour = minutesTotal % 60 === 0;
@@ -266,7 +275,7 @@ export function WeekCalendar({
               <div className={classes.timeCol} style={{ height: ROW_HEIGHT }}>
                 {isHour && <div className={classes.timeLabel}>{label}</div>}
               </div>
-              {week.map((dateISO) => {
+              {week.map((dateISO, dayIdx) => {
                 const key = cellToUtc(
                   dateISO,
                   rowIndex,
@@ -274,91 +283,69 @@ export function WeekCalendar({
                   poll.granularity,
                   tz,
                 );
-                const mine = mySlots.has(key);
-                const otherSet = othersSlots?.get(key);
-                const availableCount = (mine ? 1 : 0) + (otherSet?.size ?? 0);
-                const anyAvailable = availableCount > 0;
-                const everyone =
-                  participants.length > 0 && availableCount === participants.length;
+                const mine = mySlots.get(key);
 
-                // Fill color: green if everyone is available, else the connected
-                // participant's color when available, else none.
-                const fillColor = everyone
-                  ? 'var(--mantine-color-green-6)'
-                  : mine
+                // My status = the cell fill.
+                const fillColor =
+                  mine === 'yes'
                     ? 'var(--mantine-color-indigo-6)'
-                    : null;
+                    : mine === 'if_needed'
+                      ? 'var(--mantine-color-yellow-5)'
+                      : null;
 
-                // Per-person status squares, only when someone is available.
-                const columns = anyAvailable
-                  ? squareColumns(participants, (p) =>
-                      p.id === meId ? mine : !!otherSet?.has(p.id),
-                    )
-                  : null;
-                const colCount = columns?.length ?? 0;
-                const markerWidth = markerWidthPx(colCount);
-                const reserved = reservedRightPx(colCount);
+                // Aggregate across everyone -> the left stripe color.
+                const total = participants.length;
+                let yes = 0;
+                let ifNeeded = 0;
+                for (const p of participants) {
+                  const raw =
+                    p.id === meId ? mySlots.get(key) : othersStatus?.get(key)?.get(p.id);
+                  if (raw === 'yes') yes += 1;
+                  else if (raw === 'if_needed') ifNeeded += 1;
+                }
+                const available = yes + ifNeeded;
+                const missing = total - available;
+                let stripe: string | null = null;
+                if (available > 0) {
+                  if (missing === 0) {
+                    stripe = ifNeeded > 0
+                      ? 'var(--mantine-color-yellow-5)'
+                      : 'var(--mantine-color-green-6)';
+                  } else if (missing === 1) {
+                    stripe = 'var(--mantine-color-orange-6)';
+                  } else {
+                    stripe = 'var(--mantine-color-red-6)';
+                  }
+                }
 
                 return (
                   <div
                     key={`${dateISO}-${rowIndex}`}
+                    data-cell
+                    data-day={dayIdx}
+                    data-row={rowIndex}
                     className={`${classes.cell} ${isHour ? classes.hourTop : ''} ${
                       readOnly ? classes.readonly : ''
                     }`}
                     style={{ height: ROW_HEIGHT }}
-                    onMouseEnter={(e) => {
-                      if (paint.current.active) return;
-                      setHover({ key, rect: e.currentTarget.getBoundingClientRect() });
-                    }}
                     onPointerDown={
                       readOnly
                         ? undefined
                         : (e) => {
                             (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-                            setHover(null);
-                            const mode = mine ? 'remove' : 'add';
-                            paint.current = { active: true, mode };
-                            apply(key, mode);
+                            startPaint(dayIdx, rowIndex);
                           }
                     }
-                    onPointerEnter={
-                      readOnly
-                        ? undefined
-                        : () => {
-                            if (paint.current.active) apply(key, paint.current.mode);
-                          }
-                    }
+                    onMouseEnter={(e) => {
+                      if (paint.current?.active) return;
+                      setHover({ key, rect: e.currentTarget.getBoundingClientRect() });
+                    }}
                   >
-                    {/* Colored fill that stops before the squares strip. */}
                     {fillColor && (
-                      <div
-                        className={classes.fill}
-                        style={{ right: reserved, background: fillColor }}
-                      />
+                      <div className={classes.fill} style={{ background: fillColor }} />
                     )}
-                    {columns && (
-                      <div className={classes.squares} style={{ width: reserved }}>
-                        {columns.map((col, ci) => (
-                          <div className={classes.sqCol} key={ci}>
-                            {col.map((p) => (
-                              <span
-                                key={p.id}
-                                className={classes.sq}
-                                style={{
-                                  width: markerWidth,
-                                  // Only availability is emphasized (solid green);
-                                  // the rest is a faint ghost so it stops looking
-                                  // like a christmas tree. Details are on hover.
-                                  background: p.available
-                                    ? 'var(--mantine-color-green-6)'
-                                    : 'var(--mantine-color-gray-5)',
-                                  opacity: p.available ? 1 : 0.22,
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ))}
-                      </div>
+                    {stripe && (
+                      <div className={classes.stripe} style={{ background: stripe }} />
                     )}
                   </div>
                 );
@@ -368,7 +355,6 @@ export function WeekCalendar({
         })}
       </div>
 
-      {/* Hover inspector: everyone's status for the hovered slot. */}
       {hover && hoverStyle && participants.length > 0 && (
         <Paper
           withBorder
@@ -379,7 +365,8 @@ export function WeekCalendar({
           style={{ left: hoverStyle.left, top: hoverStyle.top, width: hoverStyle.width }}
         >
           <Text size="xs" fw={700} mb={6} tt="capitalize">
-            {formatInstant(hover.key, tz)} - {formatTime(addMinutes(hover.key, poll.granularity), tz)}
+            {formatInstant(hover.key, tz)} -{' '}
+            {formatTime(addMinutes(hover.key, poll.granularity), tz)}
           </Text>
           {participants.map((p) => {
             const meta = STATUS_META[statusFor(p, hover.key)];
@@ -419,7 +406,7 @@ export function WeekCalendar({
             variant="subtle"
             size="xs"
             color="gray"
-            onClick={() => onChange?.(new Set())}
+            onClick={() => onChange?.(new Map())}
           >
             Tout effacer (cette réponse)
           </Button>

@@ -8,6 +8,7 @@ import {
   Stack,
   Group,
   Select,
+  SegmentedControl,
   Tabs,
   Card,
   Loader,
@@ -31,22 +32,32 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiFetch } from '@/lib/api';
-import type { ParticipantPageData } from '@/lib/types';
+import type { ParticipantPageData, SlotStatus } from '@/lib/types';
 import { detectTimezone, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
 import { initials, avatarColor } from '@/lib/avatar';
-import { WeekCalendar } from './WeekCalendar';
+import { WeekCalendar, type PaintMode } from './WeekCalendar';
 import { ResultsList } from './ResultsList';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
+
+function sameSlots(
+  a: Map<string, SlotStatus>,
+  b: Map<string, SlotStatus>,
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+  return true;
+}
 
 export function ParticipantView({ token }: { token: string }) {
   const [data, setData] = useState<ParticipantPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tz, setTz] = useState<string>('UTC');
-  const [mySlots, setMySlots] = useState<Set<string>>(new Set());
-  const [savedSlots, setSavedSlots] = useState<Set<string>>(new Set());
+  const [mySlots, setMySlots] = useState<Map<string, SlotStatus>>(new Map());
+  const [savedSlots, setSavedSlots] = useState<Map<string, SlotStatus>>(new Map());
   const [saving, setSaving] = useState(false);
+  const [paintMode, setPaintMode] = useState<PaintMode>('yes');
 
   useEffect(() => {
     setTz(detectTimezone());
@@ -57,9 +68,11 @@ export function ParticipantView({ token }: { token: string }) {
       const d = await apiFetch<ParticipantPageData>(`/api/p/${token}`);
       setData(d);
       const mine = d.participants.find((p) => p.id === d.me.id);
-      const set = new Set(mine?.slots ?? []);
-      setMySlots(set);
-      setSavedSlots(new Set(set));
+      const map = new Map<string, SlotStatus>(
+        (mine?.slots ?? []).map((s) => [s.start, s.status]),
+      );
+      setMySlots(map);
+      setSavedSlots(new Map(map));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
@@ -69,13 +82,8 @@ export function ParticipantView({ token }: { token: string }) {
     load();
   }, [load]);
 
-  const dirty = useMemo(() => {
-    if (mySlots.size !== savedSlots.size) return true;
-    for (const s of mySlots) if (!savedSlots.has(s)) return true;
-    return false;
-  }, [mySlots, savedSlots]);
+  const dirty = useMemo(() => !sameSlots(mySlots, savedSlots), [mySlots, savedSlots]);
 
-  // Warn before leaving with unsaved changes.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -87,27 +95,24 @@ export function ParticipantView({ token }: { token: string }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  // Slot key -> set of *other* participant ids available (my own live status
-  // comes from mySlots so it updates as I paint).
-  const othersSlots = useMemo(() => {
-    const map = new Map<string, Set<string>>();
+  // Slot key -> (other participant id -> status).
+  const othersStatus = useMemo(() => {
+    const map = new Map<string, Map<string, SlotStatus>>();
     if (!data) return map;
     for (const p of data.participants) {
       if (p.id === data.me.id) continue;
       for (const s of p.slots) {
-        let set = map.get(s);
-        if (!set) {
-          set = new Set();
-          map.set(s, set);
+        let inner = map.get(s.start);
+        if (!inner) {
+          inner = new Map();
+          map.set(s.start, inner);
         }
-        set.add(p.id);
+        inner.set(p.id, s.status);
       }
     }
     return map;
   }, [data]);
 
-  // Each participant carries the timezone they answered from; for me, use the
-  // timezone I currently have selected (live), even before saving.
   const calParticipants = useMemo(
     () =>
       data
@@ -120,7 +125,6 @@ export function ParticipantView({ token }: { token: string }) {
     [data, tz],
   );
 
-  // Other participants who have answered at all (for the "pas répondu" status).
   const respondedIds = useMemo(() => {
     const set = new Set<string>();
     if (!data) return set;
@@ -130,7 +134,6 @@ export function ParticipantView({ token }: { token: string }) {
     return set;
   }, [data]);
 
-  // Roster + who has answered. My own row reflects my live (unsaved) selection.
   const roster = useMemo(() => {
     if (!data) return [];
     return data.participants.map((p) => ({
@@ -143,12 +146,16 @@ export function ParticipantView({ token }: { token: string }) {
 
   const respondedCount = roster.filter((r) => r.responded).length;
 
-  // Participant list with my *current* (possibly unsaved) selection applied,
-  // so the results tab reflects what I'm painting live.
+  // Reflect my live (unsaved) selection in the results tab.
   const participantsForResults = useMemo(() => {
     if (!data) return [];
     return data.participants.map((p) =>
-      p.id === data.me.id ? { ...p, slots: Array.from(mySlots) } : p,
+      p.id === data.me.id
+        ? {
+            ...p,
+            slots: Array.from(mySlots, ([start, status]) => ({ start, status })),
+          }
+        : p,
     );
   }, [data, mySlots]);
 
@@ -157,9 +164,12 @@ export function ParticipantView({ token }: { token: string }) {
     try {
       await apiFetch(`/api/p/${token}/availability`, {
         method: 'PUT',
-        body: JSON.stringify({ slots: Array.from(mySlots), timezone: tz }),
+        body: JSON.stringify({
+          slots: Array.from(mySlots, ([start, status]) => ({ start, status })),
+          timezone: tz,
+        }),
       });
-      setSavedSlots(new Set(mySlots));
+      setSavedSlots(new Map(mySlots));
       notifications.show({ color: 'teal', message: 'Disponibilités enregistrées.' });
     } catch (err) {
       notifications.show({
@@ -286,27 +296,67 @@ export function ParticipantView({ token }: { token: string }) {
 
           <Tabs.Panel value="me" pt="md">
             <Stack gap="sm">
-              <Group gap="xs">
-                <Badge variant="dot" color="indigo">
-                  Vos dispos
-                </Badge>
-                <Badge variant="dot" color="green">
-                  Tout le monde dispo
-                </Badge>
-                <Text size="xs" c="dimmed">
-                  Carrés à droite : un par personne, vert plein = dispo. Survolez une
-                  case pour le détail de chacun. Créneaux de{' '}
-                  {GRAN_LABEL[poll.granularity]}. Cliquez-glissez pour peindre.
+              <Group justify="space-between" wrap="wrap" gap="sm">
+                <div>
+                  <Text size="xs" c="dimmed" mb={4}>
+                    Outil de remplissage
+                  </Text>
+                  <SegmentedControl
+                    size="xs"
+                    value={paintMode}
+                    onChange={(v) => setPaintMode(v as PaintMode)}
+                    data={[
+                      { value: 'yes', label: 'Dispo' },
+                      { value: 'if_needed', label: 'Si besoin' },
+                      { value: 'erase', label: 'Effacer' },
+                    ]}
+                  />
+                </div>
+                <Text size="xs" c="dimmed" maw={360}>
+                  Cliquez-glissez pour peindre un bloc. Le liseré à gauche de chaque
+                  créneau indique la dispo globale (survolez pour le détail). Créneaux de{' '}
+                  {GRAN_LABEL[poll.granularity]}.
                 </Text>
               </Group>
+
+              <Group gap="md">
+                <Group gap={6}>
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 3,
+                      background: 'var(--mantine-color-indigo-6)',
+                    }}
+                  />
+                  <Text size="xs">Vous : dispo</Text>
+                </Group>
+                <Group gap={6}>
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 3,
+                      background: 'var(--mantine-color-yellow-5)',
+                    }}
+                  />
+                  <Text size="xs">Vous : si besoin</Text>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Liseré : 🟢 tous · 🟡 tous (si besoin) · 🟠 il manque 1 · 🔴 il
+                  manque &gt;1
+                </Text>
+              </Group>
+
               <WeekCalendar
                 poll={poll}
                 tz={tz}
                 mySlots={mySlots}
                 onChange={setMySlots}
+                paintMode={paintMode}
                 participants={calParticipants}
                 meId={me.id}
-                othersSlots={othersSlots}
+                othersStatus={othersStatus}
                 respondedIds={respondedIds}
               />
             </Stack>

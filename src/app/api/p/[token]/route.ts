@@ -24,7 +24,7 @@ export async function GET(
           id: true,
           name: true,
           timezone: true,
-          slots: { select: { startUtc: true } },
+          slots: { select: { startUtc: true, status: true } },
         },
       },
     },
@@ -48,7 +48,10 @@ export async function GET(
       id: p.id,
       name: p.name,
       timezone: p.timezone,
-      slots: p.slots.map((s) => s.startUtc),
+      slots: p.slots.map((s) => ({
+        start: s.startUtc,
+        status: s.status === 'if_needed' ? 'if_needed' : 'yes',
+      })),
     })),
   };
   return NextResponse.json(data);
