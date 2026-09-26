@@ -15,7 +15,9 @@ export function StripeLegend() {
       </Text>
       {ITEMS.map((i) => (
         <Group key={i.label} gap={6}>
-          <span style={{ width: 4, height: 14, borderRadius: 2, background: i.color }} />
+          <span
+            style={{ width: 4, height: 14, borderRadius: 2, background: i.color, opacity: 0.5 }}
+          />
           <Text size="xs">{i.label}</Text>
         </Group>
       ))}

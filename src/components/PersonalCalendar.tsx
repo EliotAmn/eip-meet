@@ -41,7 +41,8 @@ type ViewType = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth';
 const COLORS = {
   busy: { bg: 'var(--mantine-color-red-7)', text: 'var(--mantine-color-white)' },
   soft: { bg: 'var(--mantine-color-yellow-5)', text: 'var(--mantine-color-dark-9)' },
-  meeting: { bg: 'var(--mantine-color-indigo-6)', text: 'var(--mantine-color-white)' },
+  // Meetings are context, not something edited here: Mantine's "light" variant.
+  meeting: { bg: 'var(--mantine-color-indigo-light)', text: 'var(--mantine-color-indigo-light-color)' },
 };
 
 function renderEvent(arg: EventContentArg) {

@@ -49,9 +49,10 @@ import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
+// My calendar-derived status: not editable here, so shown discreetly.
 const HATCH =
-  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 55%, transparent) 0 4px, transparent 4px 8px)';
-const SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 45%, transparent)';
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 22%, transparent) 0 4px, transparent 4px 8px)';
+const SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 16%, transparent)';
 
 export function periodLabel(dateMin: string, dateMax: string) {
   const a = DateTime.fromISO(dateMin).setLocale('fr');

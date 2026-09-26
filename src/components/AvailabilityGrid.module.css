@@ -59,6 +59,9 @@
   left: 0;
   width: 5px;
   pointer-events: none;
+  /* Global info: kept readable but muted, so it doesn't compete with what
+     the user paints. */
+  opacity: 0.5;
 }
 
 :global([data-mantine-color-scheme='dark']) .cell {
