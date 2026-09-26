@@ -3,7 +3,12 @@ services:
     build: .
     ports:
       - '3000:3000'
+    # AUTH_* variables (secret, Google / Microsoft credentials, AUTH_URL).
+    env_file:
+      - path: .env
+        required: false
     environment:
+      # Takes precedence over the .env value: the DB lives on the volume.
       - DATABASE_URL=file:/data/prod.db
     volumes:
       - logimeet-data:/data

@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { validateCreatePoll, ValidationError } from '@/lib/validate';
 
 export async function POST(request: Request) {
+  // Creating a poll requires an account.
+  const session = await auth();
+  const ownerId = session?.user?.id;
+  if (!ownerId) {
+    return NextResponse.json(
+      { error: 'Connectez-vous pour créer un sondage.' },
+      { status: 401 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -20,6 +31,7 @@ export async function POST(request: Request) {
         granularity: input.granularity,
         dayStart: input.dayStart,
         dayEnd: input.dayEnd,
+        ownerId,
         participants: {
           create: input.participants.map((name) => ({ name })),
         },

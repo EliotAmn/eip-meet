@@ -1,46 +1,37 @@
-'use client';
+import { auth, enabledProviders } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { HomeShell, type HomePoll, type HomeUser } from '@/components/HomeShell';
 
-import {
-  AppShell,
-  Container,
-  Title,
-  Text,
-  Group,
-  ThemeIcon,
-  Stack,
-} from '@mantine/core';
-import { IconCalendarClock } from '@tabler/icons-react';
-import { CreateForm } from '@/components/CreateForm';
+export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
-  return (
-    <AppShell header={{ height: 60 }} padding="md">
-      <AppShell.Header>
-        <Container size="md" h="100%">
-          <Group h="100%" gap="xs">
-            <ThemeIcon variant="light" size="md" radius="md">
-              <IconCalendarClock size={18} />
-            </ThemeIcon>
-            <Text fw={650}>LogiMeet</Text>
-          </Group>
-        </Container>
-      </AppShell.Header>
+export default async function HomePage() {
+  const session = await auth();
+  const sessionUser = session?.user;
 
-      <AppShell.Main>
-        <Container size="md" py="xl">
-          <Stack gap="xl">
-            <Stack gap="xs">
-              <Title order={1}>Trouver un créneau qui va à tout le monde</Title>
-              <Text c="dimmed" size="lg">
-                Créez un sondage, partagez un lien à chaque participant, et laissez
-                chacun peindre ses disponibilités. Les fuseaux horaires sont gérés
-                automatiquement.
-              </Text>
-            </Stack>
-            <CreateForm />
-          </Stack>
-        </Container>
-      </AppShell.Main>
-    </AppShell>
-  );
+  let user: HomeUser | null = null;
+  let polls: HomePoll[] = [];
+
+  if (sessionUser?.id) {
+    user = {
+      id: sessionUser.id,
+      name: sessionUser.name ?? null,
+      email: sessionUser.email ?? null,
+      image: sessionUser.image ?? null,
+    };
+    const rows = await prisma.poll.findMany({
+      where: { ownerId: sessionUser.id },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { participants: true } } },
+    });
+    polls = rows.map((p) => ({
+      id: p.id,
+      title: p.title,
+      dateMin: p.dateMin,
+      dateMax: p.dateMax,
+      adminToken: p.adminToken,
+      participantCount: p._count.participants,
+    }));
+  }
+
+  return <HomeShell user={user} providers={enabledProviders} polls={polls} />;
 }

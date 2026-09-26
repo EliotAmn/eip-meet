@@ -7,6 +7,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------- Auth.js (Prisma adapter) ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  polls    Poll[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  ext_expires_in    Int? // returned by Microsoft Entra ID
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------- Polls ----------
+
 model Poll {
   id          String   @id @default(cuid())
   adminToken  String   @unique @default(cuid())
@@ -17,7 +74,9 @@ model Poll {
   dayStart    Int // visible window start hour, local time (0-23)
   dayEnd      Int // visible window end hour, local time (1-24)
   createdAt   DateTime @default(now())
+  ownerId     String? // null for polls created before accounts existed
 
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   participants Participant[]
 }
 
