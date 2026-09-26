@@ -10,7 +10,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Card,
   Center,
   Divider,
   Group,
@@ -23,6 +22,8 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
+  UnstyledButton,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -33,6 +34,7 @@ import {
   IconSettings,
   IconTrash,
   IconUserPlus,
+  IconUsers,
 } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
@@ -63,6 +65,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [participantsOpen, setParticipantsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [rename, setRename] = useState<{ id: string; name: string } | null>(null);
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
@@ -70,7 +73,16 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const [origin, setOrigin] = useState('');
   const suggestions = useAccountEmails(meEmail);
 
-  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    // Right after creation: open the participants popup to share guest links.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('participants')) {
+      setParticipantsOpen(true);
+      url.searchParams.delete('participants');
+      window.history.replaceState(null, '', url.pathname + url.search);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -183,39 +195,84 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const answeredCount = participants.filter((p) => p.answered).length;
 
   return (
-    <Stack gap="lg" maw={1100}>
-      <Group justify="space-between" align="flex-start" wrap="wrap">
-        <div>
-          <Title order={2}>{meeting.title}</Title>
-          <Text c="dimmed" tt="none" mt={2}>
-            {periodLabel(meeting.dateMin, meeting.dateMax)}
+    <Stack gap="md" maw={1100}>
+      {/* Compact header: the calendar below is what matters. */}
+      <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+        <div style={{ minWidth: 0 }}>
+          <Title order={3}>{meeting.title}</Title>
+          <Text size="sm" c="dimmed">
+            {periodLabel(meeting.dateMin, meeting.dateMax)} · créneaux de{' '}
+            {GRAN_LABEL[meeting.granularity]} · {meeting.dayStart}h-{meeting.dayEnd}h (heure locale)
           </Text>
-          <Group gap="xs" mt="xs">
-            <Badge variant="light">Créneaux de {GRAN_LABEL[meeting.granularity]}</Badge>
-            <Badge variant="light">
-              {String(meeting.dayStart).padStart(2, '0')}:00-{String(meeting.dayEnd).padStart(2, '0')}:00
-              (heure locale)
-            </Badge>
-            <Badge variant="light" color={answeredCount === participants.length ? 'teal' : 'gray'}>
-              {answeredCount}/{participants.length} ont répondu
-            </Badge>
-          </Group>
         </div>
-        {isAdmin && (
-          <Group gap="xs">
-            <Button variant="default" leftSection={<IconSettings size={16} />} onClick={() => setEditOpen(true)}>
-              Modifier
-            </Button>
-            {isOwner && (
-              <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => setDeleteOpen(true)}>
-                Supprimer
-              </Button>
-            )}
-          </Group>
-        )}
+        <Group gap="xs" wrap="nowrap">
+          <UnstyledButton onClick={() => setParticipantsOpen(true)} aria-label="Participants">
+            <Avatar.Group spacing="xs">
+              {participants.slice(0, 5).map((p) => (
+                <Tooltip
+                  key={p.id}
+                  label={`${p.name}${p.answered ? '' : ' (en attente)'}`}
+                  withArrow
+                >
+                  <Avatar
+                    src={p.image}
+                    size="sm"
+                    radius="xl"
+                    color={avatarColor(p.id)}
+                    style={{ opacity: p.answered ? 1 : 0.4 }}
+                  >
+                    {initials(p.name)}
+                  </Avatar>
+                </Tooltip>
+              ))}
+              {participants.length > 5 && (
+                <Avatar size="sm" radius="xl">
+                  +{participants.length - 5}
+                </Avatar>
+              )}
+            </Avatar.Group>
+          </UnstyledButton>
+          <Button
+            variant="default"
+            leftSection={<IconUsers size={16} />}
+            rightSection={
+              <Badge size="sm" variant="light" color={answeredCount === participants.length ? 'teal' : 'gray'}>
+                {answeredCount}/{participants.length}
+              </Badge>
+            }
+            onClick={() => setParticipantsOpen(true)}
+          >
+            Participants
+          </Button>
+          {isAdmin && (
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <ActionIcon variant="default" size="lg" aria-label="Paramètres de la réunion">
+                  <IconDots size={16} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => setEditOpen(true)}>
+                  Modifier la réunion
+                </Menu.Item>
+                {isOwner && (
+                  <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={() => setDeleteOpen(true)}>
+                    Supprimer
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </Group>
       </Group>
 
-      <Card withBorder radius="md" padding="lg">
+      <Modal
+        opened={participantsOpen}
+        onClose={() => setParticipantsOpen(false)}
+        title="Participants"
+        size="lg"
+        centered
+      >
         <Stack gap="sm">
           <Text fw={600}>Membres</Text>
           {detail.members.map((m) => {
@@ -341,7 +398,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
             </Group>
           )}
         </Stack>
-      </Card>
+      </Modal>
 
       <Tabs defaultValue="grid" keepMounted={false}>
         <Tabs.List>
@@ -355,13 +412,13 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
         <Tabs.Panel value="grid" pt="md">
           <Stack gap="sm">
             {myMember && (
-              <Text size="sm" c="dimmed">
-                Vos disponibilités viennent de votre calendrier (hachuré = indisponible, jaune = si
-                besoin).{' '}
-                <Anchor component={Link} href="/" size="sm">
-                  Modifier mon calendrier
+              <Text size="xs" c="dimmed">
+                Vos dispos viennent de votre calendrier (hachuré = indisponible, jaune = si
+                besoin) :{' '}
+                <Anchor component={Link} href="/" size="xs">
+                  le modifier
                 </Anchor>
-                {' · '}Heures affichées en {tz}.
+                {' · '}Heures en {tz}.
               </Text>
             )}
             <StripeLegend />

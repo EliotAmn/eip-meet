@@ -101,7 +101,7 @@ export function MeetingForm({
           method: 'POST',
           body: JSON.stringify({ ...settings, memberEmails, guestNames }),
         });
-        router.push(`/meetings/${id}`);
+        router.push(`/meetings/${id}?participants=1`);
         router.refresh();
       }
     } catch (err) {
