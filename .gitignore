@@ -19,3 +19,6 @@ prisma/*.db-journal
 .DS_Store
 *.log
 next-env.d.ts
+
+# TypeScript incremental build info
+*.tsbuildinfo

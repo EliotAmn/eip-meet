@@ -42,6 +42,7 @@ import { AvailabilityGrid, type PaintMode } from './AvailabilityGrid';
 import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 import { periodLabel } from './MeetingView';
+import { APP_NAME } from '@/lib/brand';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
 
@@ -150,7 +151,7 @@ export function GuestView({ token }: { token: string }) {
           <ThemeIcon variant="light" size="md" radius="md">
             <IconCalendarClock size={18} />
           </ThemeIcon>
-          <Text fw={650}>LogiMeet</Text>
+          <Text fw={650}>{APP_NAME}</Text>
         </Group>
         <div>
           <Title order={2}>{meeting.title}</Title>

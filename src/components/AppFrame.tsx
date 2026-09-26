@@ -37,6 +37,7 @@ import { initials, avatarColor } from '@/lib/avatar';
 import { detectTimezone, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
 import type { MeetingSummary } from '@/lib/types';
+import { APP_NAME } from '@/lib/brand';
 
 export interface FrameUser {
   id: string;
@@ -126,7 +127,7 @@ export function AppFrame({
             <ThemeIcon variant="light" size="md" radius="md">
               <IconCalendarClock size={18} />
             </ThemeIcon>
-            <Text fw={650}>LogiMeet</Text>
+            <Text fw={650}>{APP_NAME}</Text>
           </Group>
 
           <Menu position="bottom-end" withinPortal>

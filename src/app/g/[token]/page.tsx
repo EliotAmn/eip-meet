@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { GuestView } from '@/components/GuestView';
+import { APP_NAME } from '@/lib/brand';
 
 // Link previews (Discord, WhatsApp, ...) show the meeting title.
 export async function generateMetadata({
@@ -14,13 +15,13 @@ export async function generateMetadata({
     select: { meeting: { select: { title: true } } },
   });
   const title = guest?.meeting.title;
-  if (!title) return { title: 'Lien invalide - LogiMeet' };
+  if (!title) return { title: `Lien invalide - ${APP_NAME}` };
   const description = `Indiquez vos disponibilités pour "${title}".`;
   return {
-    title: `${title} - LogiMeet`,
+    title: `${title} - ${APP_NAME}`,
     description,
     robots: { index: false, follow: false },
-    openGraph: { title, description, siteName: 'LogiMeet', type: 'website' },
+    openGraph: { title, description, siteName: APP_NAME, type: 'website' },
     twitter: { card: 'summary', title, description },
   };
 }

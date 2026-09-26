@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentUser, meetingsForUser } from '@/lib/server';
 import { validateCreateMeeting, ValidationError } from '@/lib/validate';
+import { newGuestToken } from '@/lib/tokens';
 
 export async function GET() {
   const user = await currentUser();
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
             })),
           ],
         },
-        guests: { create: input.guestNames.map((name) => ({ name })) },
+        guests: { create: input.guestNames.map((name) => ({ name, token: newGuestToken() })) },
       },
       select: { id: true },
     });

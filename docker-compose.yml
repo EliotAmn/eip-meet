@@ -11,6 +11,8 @@ services:
       # Takes precedence over the .env value: the DB lives on the volume.
       - DATABASE_URL=file:/data/prod.db
     volumes:
+      # Volume name kept from the app's former name (LogiMeet) on purpose:
+      # renaming it would start from an empty database.
       - logimeet-data:/data
     restart: unless-stopped
 

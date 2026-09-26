@@ -9,14 +9,15 @@ import { DatesProvider } from '@mantine/dates';
 import { Notifications } from '@mantine/notifications';
 import 'dayjs/locale/fr';
 import { theme } from '@/theme';
+import { APP_NAME } from '@/lib/brand';
 
 export const metadata: Metadata = {
-  title: 'LogiMeet',
+  title: APP_NAME,
   description: 'Trouvez un créneau qui va à toute votre équipe, fuseaux horaires gérés.',
   openGraph: {
-    title: 'LogiMeet',
+    title: APP_NAME,
     description: 'Trouvez un créneau qui va à toute votre équipe, fuseaux horaires gérés.',
-    siteName: 'LogiMeet',
+    siteName: APP_NAME,
     type: 'website',
   },
 };

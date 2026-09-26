@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { currentUser, meetingAccess } from '@/lib/server';
+import { newGuestToken } from '@/lib/tokens';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -25,7 +26,7 @@ export async function POST(request: Request, ctx: Ctx) {
   const name = cleanName(body?.name);
   if (!name || name.length > 100) return badName();
   const guest = await prisma.guest.create({
-    data: { meetingId: a.id, name },
+    data: { meetingId: a.id, name, token: newGuestToken() },
     select: { id: true, token: true },
   });
   return NextResponse.json(guest, { status: 201 });

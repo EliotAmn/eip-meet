@@ -21,6 +21,7 @@ import {
   IconInfoCircle,
 } from '@tabler/icons-react';
 import { signInWith } from '@/app/actions';
+import { APP_NAME } from '@/lib/brand';
 
 const PROVIDER_ICON: Record<string, React.ReactNode> = {
   google: <IconBrandGoogle size={18} />,
@@ -57,13 +58,13 @@ export function Landing({ providers }: { providers: { id: string; name: string }
               <IconCalendarClock size={20} />
             </ThemeIcon>
             <Text fw={700} size="xl">
-              LogiMeet
+              {APP_NAME}
             </Text>
           </Group>
           <div>
             <Title order={2}>Planifier les réunions d&apos;équipe</Title>
             <Text c="dimmed" mt={4}>
-              Renseignez une fois vos indisponibilités récurrentes, LogiMeet trouve les
+              Renseignez une fois vos indisponibilités récurrentes, {APP_NAME} trouve les
               créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
             </Text>
           </div>
