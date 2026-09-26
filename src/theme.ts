@@ -1,6 +1,8 @@
 'use client';
 
 import { createTheme } from '@mantine/core';
+// French month / weekday names for @mantine/dates pickers (client bundle).
+import 'dayjs/locale/fr';
 
 // Keep to Mantine's built-in palette and scales - no hand-rolled colors.
 export const theme = createTheme({

@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Auth.js (Prisma adapter) ----------
+// ---------- Accounts (Auth.js Prisma adapter) ----------
 
 model User {
   id            String    @id @default(cuid())
@@ -15,12 +15,15 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  timezone      String? // IANA tz the personal calendar is shown/edited in
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
-  polls    Poll[]
+  accounts         Account[]
+  sessions         Session[]
+  unavailabilities Unavailability[]
+  ownedMeetings    Meeting[]
+  memberships      MeetingMember[]
 }
 
 model Account {
@@ -62,43 +65,103 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
-// ---------- Polls ----------
+// ---------- Personal long-term calendar ----------
 
-model Poll {
+// A (possibly recurring) unavailability, expressed in wall-clock time of its
+// own timezone. Occurrences are expanded on demand (src/lib/recurrence.ts).
+model Unavailability {
+  id        String  @id @default(cuid())
+  userId    String
+  title     String?
+  type      String // "busy" (indisponible) | "soft" (si besoin, à éviter)
+  allDay    Boolean @default(false)
+  startDate String // YYYY-MM-DD of the first occurrence
+  endDate   String // YYYY-MM-DD, last day of an occurrence (== startDate for timed)
+  startTime String? // "HH:mm" (timed events)
+  endTime   String? // "HH:mm", may be "24:00"
+  timezone  String
+  freq      String  @default("none") // "none" | "daily" | "weekly" | "monthly"
+  interval  Int     @default(1)
+  byWeekday String? // weekly: comma-separated ISO weekdays, 1 = Monday .. 7 = Sunday
+  until     String? // YYYY-MM-DD, last date an occurrence may start (inclusive)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exceptions UnavailabilityException[]
+
+  @@index([userId])
+}
+
+// One occurrence of a recurring unavailability that was deleted or edited.
+model UnavailabilityException {
+  id        String  @id @default(cuid())
+  eventId   String
+  date      String // original occurrence date, YYYY-MM-DD
+  cancelled Boolean @default(false)
+  title     String?
+  type      String?
+  startTime String?
+  endTime   String?
+
+  event Unavailability @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, date])
+}
+
+// ---------- Meetings ----------
+
+model Meeting {
   id          String   @id @default(cuid())
-  adminToken  String   @unique @default(cuid())
   title       String
   dateMin     String // YYYY-MM-DD (inclusive)
   dateMax     String // YYYY-MM-DD (inclusive)
   granularity Int // slot length in minutes (15 | 30 | 60)
-  dayStart    Int // visible window start hour, local time (0-23)
-  dayEnd      Int // visible window end hour, local time (1-24)
+  dayStart    Int // visible window start hour, viewer-local (0-23)
+  dayEnd      Int // visible window end hour, viewer-local (1-24)
+  ownerId     String
   createdAt   DateTime @default(now())
-  ownerId     String? // null for polls created before accounts existed
 
-  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  participants Participant[]
+  owner   User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members MeetingMember[]
+  guests  Guest[]
 }
 
-model Participant {
+// An account invited to a meeting, by email (works before they ever sign in).
+model MeetingMember {
   id        String   @id @default(cuid())
-  token     String   @unique @default(cuid())
-  name      String
-  timezone  String? // IANA tz the participant last answered from
-  pollId    String
+  meetingId String
+  email     String // lowercased
+  userId    String?
+  role      String   @default("member") // "admin" | "member"
   createdAt DateTime @default(now())
 
-  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  slots Slot[]
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, email])
 }
 
-model Slot {
-  id            String @id @default(cuid())
-  participantId String
-  startUtc      String // ISO-8601 UTC instant of the slot start
-  status        String @default("yes") // "yes" | "if_needed"
+// Someone without an account, answering through a personal link.
+model Guest {
+  id        String   @id @default(cuid())
+  meetingId String
+  name      String
+  token     String   @unique @default(cuid())
+  timezone  String?
+  createdAt DateTime @default(now())
 
-  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  meeting Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  slots   GuestSlot[]
+}
 
-  @@unique([participantId, startUtc])
+model GuestSlot {
+  id       String @id @default(cuid())
+  guestId  String
+  startUtc String // ISO-8601 UTC instant of the slot start
+  status   String @default("yes") // "yes" | "if_needed"
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@unique([guestId, startUtc])
 }

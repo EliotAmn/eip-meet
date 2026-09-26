@@ -5,7 +5,9 @@ import './globals.css';
 
 import type { Metadata } from 'next';
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
+import { DatesProvider } from '@mantine/dates';
 import { Notifications } from '@mantine/notifications';
+import 'dayjs/locale/fr';
 import { theme } from '@/theme';
 
 export const metadata: Metadata = {
@@ -28,8 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <MantineProvider theme={theme} defaultColorScheme="auto">
-          <Notifications position="top-right" />
-          {children}
+          <DatesProvider settings={{ locale: 'fr', firstDayOfWeek: 1 }}>
+            <Notifications position="top-right" />
+            {children}
+          </DatesProvider>
         </MantineProvider>
       </body>
     </html>

@@ -1,53 +1,59 @@
 # LogiMeet
 
-Petit outil privé façon Doodle / Framadate pour trouver un créneau qui convient à
-toute l'équipe - **timezone-aware**.
+Outil d'équipe pour planifier des réunions sans remplir un sondage à chaque fois,
+timezone-aware.
 
-- **Page d'accueil** : bouton pour créer un sondage (titre, plage de dates, granularité
-  des créneaux, plage horaire, liste de participants).
-- **URL admin** (secrète) : générée à la création ; permet de gérer les participants et
-  de copier le **lien individuel** de chacun.
-- **Lien participant** : vue calendrier « semaine » sur laquelle on **peint** ses
-  disponibilités au drag (vide = pas dispo, rempli = dispo).
-- **Fuseaux horaires** : chaque personne saisit dans son fuseau local (affiché en haut).
-  Les dispos sont stockées en instants absolus (UTC) et re-affichées dans le fuseau de
-  celui qui regarde - le décalage est automatique.
-- **Résultats** : tous ceux qui ont un lien voient les réponses agrégées, listées du
-  créneau **le plus proche au plus lointain**, filtrables par nombre de participants.
+## Principe
+
+- **Chaque compte a un calendrier long terme d'indisponibilités** (vue principale) :
+  « Indisponible » ou « Si besoin (à éviter) », ponctuelles ou récurrentes (tous les
+  jours / semaines / mois, jours de la semaine, intervalle, date de fin). Une occurrence
+  se modifie ou se supprime comme dans Apple Calendar : *cet événement / celui-ci et les
+  suivants / tous*. Tout ce qui n'est pas indisponible est considéré comme disponible.
+- **Réunion** = une période (date min → max) + des **membres** (comptes, invités par
+  email) + des **invités sans compte** (lien personnel `/g/…`).
+  - Les dispos des membres sont **calculées depuis leur calendrier** : rien à remplir.
+  - Les invités peignent leurs dispos (« Dispo » / « Si besoin ») sur la période.
+  - Les réunions apparaissent en bandeau sur la période dans le calendrier perso.
+- **Résultats** : un liseré par créneau (🟢 tout le monde · 🟡 tout le monde dont « si
+  besoin » · 🟠 il manque 1 personne · 🔴 il en manque plus), le détail par personne au
+  survol (avec l'heure locale de chacun), et la liste des créneaux possibles.
+- **Droits** : le créateur est admin ; il peut nommer d'autres admins. Les admins gèrent
+  les paramètres, les membres et les invités ; seul le créateur supprime la réunion.
+- **Fuseaux** : le calendrier est saisi dans le fuseau du compte (menu utilisateur) ; tout
+  est stocké en instants absolus et réaffiché dans le fuseau de celui qui regarde.
 
 ## Stack
 
-Next.js (App Router, TypeScript) · Mantine (UI) · Prisma + SQLite · Luxon (timezone).
-Une seule app, un seul déploiement.
+Next.js (App Router, TypeScript) · Mantine · FullCalendar (calendrier perso) ·
+Auth.js (Google / Microsoft Entra ID) · Prisma + SQLite · Luxon.
 
 ## Développement
 
 ```bash
 npm install
-npx prisma migrate dev   # crée la base SQLite locale (prisma/dev.db)
-npm run dev              # http://localhost:3000
+cp .env.example .env        # puis renseigner AUTH_SECRET et les credentials OAuth
+npx prisma migrate deploy   # crée / met à jour la base SQLite locale
+npm run dev                 # http://localhost:3000
 ```
 
-## Production (Docker)
+Callbacks OAuth à déclarer :
+`https://<domaine>/api/auth/callback/microsoft-entra-id` et
+`https://<domaine>/api/auth/callback/google` (en local : `http://localhost:3000/...`).
 
-La base SQLite est persistée dans un volume monté sur `/data`.
+## Production (Docker)
 
 ```bash
 docker compose up -d --build
 ```
 
-L'app écoute sur le port `3000`. Les migrations sont appliquées automatiquement au
-démarrage du conteneur.
+La base SQLite est dans le volume monté sur `/data` ; les migrations sont appliquées au
+démarrage. Les variables `AUTH_*`, `MICROSOFT_*`, `GOOGLE_*` sont lues depuis `.env`.
 
-## Modèle de données
+## Code
 
-- `Poll` : titre, dates min/max, granularité (min), plage horaire (heures locales),
-  `adminToken` secret.
-- `Participant` : nom, `token` secret (= son lien).
-- `Slot` : un créneau disponible, stocké comme instant UTC (`startUtc`).
-
-## Note sur les fuseaux
-
-Le matching des créneaux se fait sur les instants absolus. Il est exact pour tous les
-fuseaux à décalage d'heure entière (France, Chine, etc.). Les fuseaux à décalage d'une
-demi-heure (Inde, etc.) peuvent ne pas s'aligner parfaitement sur la grille commune.
+- `src/lib/recurrence.ts` : expansion des indisponibilités récurrentes (exceptions,
+  changements d'heure).
+- `src/lib/server.ts` : droits d'accès aux réunions, calcul des intervalles occupés.
+- `src/lib/availability.ts` : statuts par créneau et plages de créneaux possibles.
+- `src/app/(app)/` : pages connectées (calendrier, réunions) ; `src/app/g/` : invités.
