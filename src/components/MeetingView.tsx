@@ -40,7 +40,8 @@ import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
 import { noAutofill } from '@/lib/noAutofill';
 import { avatarColor, initials } from '@/lib/avatar';
-import { buildAvailability, meetingSlotKeys } from '@/lib/availability';
+import { buildAvailability, meetingSlotKeys, startStatuses } from '@/lib/availability';
+import { formatDuration } from '@/lib/time';
 import type { MeetingDetail, MemberAvailability } from '@/lib/types';
 import { AvailabilityGrid } from './AvailabilityGrid';
 import { CopyLinkButton } from './CopyLinkButton';
@@ -49,10 +50,11 @@ import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 
 const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
-// My own unavailabilities (from my calendar): shown as vividly as in my
-// calendar, with the same colors. Only the group stripe is muted.
-const MY_BUSY_FILL = 'var(--mantine-color-red-7)';
-const MY_SOFT_FILL = 'var(--mantine-color-yellow-5)';
+// My own unavailabilities come from my calendar, where they are edited: on the
+// meeting page they stay discreet, only the per-slot results stand out.
+const MY_BUSY_FILL =
+  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 22%, transparent) 0 4px, transparent 4px 8px)';
+const MY_SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 16%, transparent)';
 
 export function periodLabel(dateMin: string, dateMax: string) {
   const a = DateTime.fromISO(dateMin).setLocale('fr');
@@ -102,6 +104,14 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const { participants, statuses } = useMemo(
     () => (detail ? buildAvailability(detail, tz, keys) : { participants: [], statuses: new Map() }),
     [detail, tz, keys],
+  );
+  // Who can attend a meeting of the full duration, per possible start time.
+  const starts = useMemo(
+    () =>
+      detail
+        ? startStatuses(keys, statuses, detail.meeting.granularity, detail.meeting.duration)
+        : new Map(),
+    [detail, keys, statuses],
   );
 
   if (error) {
@@ -203,8 +213,9 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
         <div style={{ minWidth: 0 }}>
           <Title order={3}>{meeting.title}</Title>
           <Text size="sm" c="dimmed">
-            {periodLabel(meeting.dateMin, meeting.dateMax)} · créneaux de{' '}
-            {GRAN_LABEL[meeting.granularity]} · {meeting.dayStart}h-{meeting.dayEnd}h (heure locale)
+            {periodLabel(meeting.dateMin, meeting.dateMax)} · réunion de{' '}
+            {formatDuration(meeting.duration)} · créneaux de {GRAN_LABEL[meeting.granularity]} ·{' '}
+            {meeting.dayStart}h-{meeting.dayEnd}h (heure locale)
           </Text>
         </div>
         <Group gap="xs" wrap="nowrap">
@@ -417,7 +428,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Stack gap="sm">
             {myMember && (
               <Text size="xs" c="dimmed">
-                Vos indispos viennent de votre calendrier (rouge = indisponible, jaune = si
+                Chaque case = une heure de début possible. Vos indispos (hachuré, jaune = si
                 besoin) :{' '}
                 <Anchor component={Link} href="/" size="xs">
                   le modifier
@@ -430,7 +441,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
               meeting={meeting}
               tz={tz}
               participants={participants}
-              statuses={statuses}
+              statuses={starts}
               myFill={myFill}
             />
           </Stack>
@@ -438,9 +449,10 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
         <Tabs.Panel value="results" pt="md">
           <MeetingResults
             keys={keys}
-            statuses={statuses}
+            statuses={starts}
             participants={participants}
             granularity={meeting.granularity}
+            duration={meeting.duration}
             tz={tz}
           />
         </Tabs.Panel>

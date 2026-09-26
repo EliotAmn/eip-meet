@@ -99,3 +99,11 @@ export function offsetLabel(tz: string): string {
   const offset = now.toFormat('ZZ');
   return `UTC${offset}`;
 }
+
+/** Human meeting length: "45 min", "1h", "1h30". */
+export function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}

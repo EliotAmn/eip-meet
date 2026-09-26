@@ -168,6 +168,7 @@ export async function buildMeetingDetail(
       dateMin: meeting.dateMin,
       dateMax: meeting.dateMax,
       granularity: meeting.granularity,
+      duration: meeting.duration,
       dayStart: meeting.dayStart,
       dayEnd: meeting.dayEnd,
     },

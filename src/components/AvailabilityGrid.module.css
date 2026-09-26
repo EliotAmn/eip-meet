@@ -95,6 +95,18 @@
   pointer-events: none;
 }
 
+/* Everyone available, some only "si besoin": possible, but less ideal. */
+.matchIfNeeded {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mantine-color-yellow-5);
+  color: var(--mantine-color-dark-7);
+  pointer-events: none;
+}
+
 /* Hover inspector floating panel. */
 .inspector {
   position: fixed;

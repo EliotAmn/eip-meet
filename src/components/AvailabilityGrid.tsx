@@ -50,22 +50,34 @@ function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): str
   return `${theirs.toFormat('HH:mm')}${dayTag} · ${city}`;
 }
 
-/** Aggregate stripe: all yes / all but some "si besoin" / 1 missing / more. */
-export function stripeColor(st: Map<string, SlotStatus> | undefined, total: number): string | null {
+/**
+ * Result of a slot for the whole group:
+ * - 'yes': everyone available -> green check cell
+ * - 'if_needed': everyone available, some only "si besoin" -> amber check cell
+ * - otherwise a muted stripe: orange if 1 person is missing, red if more.
+ */
+export function slotResult(
+  st: Map<string, SlotStatus> | undefined,
+  total: number,
+): { match: 'yes' | 'if_needed' | null; stripe: string | null } {
   const available = st?.size ?? 0;
-  if (available === 0 || total === 0) return null;
+  if (available === 0 || total === 0) return { match: null, stripe: null };
   const missing = total - available;
   if (missing === 0) {
     const ifNeeded = [...st!.values()].some((s) => s === 'if_needed');
-    return ifNeeded ? 'var(--mantine-color-green-3)' : 'var(--mantine-color-green-8)';
+    return { match: ifNeeded ? 'if_needed' : 'yes', stripe: null };
   }
-  return missing === 1 ? 'var(--mantine-color-orange-6)' : 'var(--mantine-color-red-6)';
+  return {
+    match: null,
+    stripe: missing === 1 ? 'var(--mantine-color-orange-6)' : 'var(--mantine-color-red-6)',
+  };
 }
 
 interface AvailabilityGridProps {
   meeting: MeetingConfig;
   tz: string;
   participants: GridParticipant[];
+  /** Per start time: who can attend a meeting of `meeting.duration` from there. */
   statuses: StatusMap;
   /** Background of a cell, reflecting the viewer's own status. */
   myFill?: (key: string) => string | null;
@@ -259,15 +271,9 @@ export function AvailabilityGrid({
               </div>
               {week.map((dateISO, dayIdx) => {
                 const key = cellToUtc(dateISO, rowIndex, meeting.dayStart, meeting.granularity, tz);
-                const st = statuses.get(key);
-                // A slot where everyone is available ("Dispo") is a match: it gets
-                // the whole cell, so the possible meeting times stand out.
-                const match =
-                  participants.length > 0 &&
-                  st?.size === participants.length &&
-                  [...st.values()].every((s) => s === 'yes');
+                // Possible start times take the whole cell so they stand out.
+                const { match, stripe } = slotResult(statuses.get(key), participants.length);
                 const fill = match ? null : (myFill?.(key) ?? null);
-                const stripe = match ? null : stripeColor(st, participants.length);
                 return (
                   <div
                     key={`${dateISO}-${rowIndex}`}
@@ -294,7 +300,7 @@ export function AvailabilityGrid({
                     {fill && <div className={classes.fill} style={{ background: fill }} />}
                     {stripe && <div className={classes.stripe} style={{ background: stripe }} />}
                     {match && (
-                      <div className={classes.match}>
+                      <div className={match === 'yes' ? classes.match : classes.matchIfNeeded}>
                         <IconCheck size={14} stroke={3} />
                       </div>
                     )}
@@ -317,7 +323,7 @@ export function AvailabilityGrid({
         >
           <Text size="xs" fw={700} mb={6} tt="capitalize">
             {formatInstant(hover.key, tz)} -{' '}
-            {formatTime(addMinutes(hover.key, meeting.granularity), tz)}
+            {formatTime(addMinutes(hover.key, meeting.duration), tz)}
           </Text>
           {participants.map((p) => {
             const meta = STATUS_META[statusFor(p, hover.key)];

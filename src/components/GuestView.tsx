@@ -34,8 +34,8 @@ import {
 } from '@tabler/icons-react';
 import { apiFetch } from '@/lib/api';
 import { avatarColor, initials } from '@/lib/avatar';
-import { buildAvailability, meetingSlotKeys } from '@/lib/availability';
-import { detectTimezone, offsetLabel } from '@/lib/time';
+import { buildAvailability, meetingSlotKeys, startStatuses } from '@/lib/availability';
+import { detectTimezone, formatDuration, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
 import type { MeetingDetail, SlotStatus } from '@/lib/types';
 import { AvailabilityGrid, type PaintMode } from './AvailabilityGrid';
@@ -98,6 +98,14 @@ export function GuestView({ token }: { token: string }) {
       detail ? buildAvailability(detail, tz, keys, mySlots) : { participants: [], statuses: new Map() },
     [detail, tz, keys, mySlots],
   );
+  // Who can attend a meeting of the full duration, per possible start time.
+  const starts = useMemo(
+    () =>
+      detail
+        ? startStatuses(keys, statuses, detail.meeting.granularity, detail.meeting.duration)
+        : new Map(),
+    [detail, keys, statuses],
+  );
 
   async function save() {
     setSaving(true);
@@ -156,7 +164,7 @@ export function GuestView({ token }: { token: string }) {
         <div>
           <Title order={2}>{meeting.title}</Title>
           <Text c="dimmed" mt={2}>
-            {periodLabel(meeting.dateMin, meeting.dateMax)}
+            {periodLabel(meeting.dateMin, meeting.dateMax)} · réunion de {formatDuration(meeting.duration)}
           </Text>
           <Text mt="xs">
             Bonjour <b>{myName}</b> - peignez vos disponibilités ci-dessous puis enregistrez.
@@ -237,7 +245,7 @@ export function GuestView({ token }: { token: string }) {
                   ]}
                 />
                 <Text size="xs" c="dimmed">
-                  Cliquez-glissez pour peindre un bloc. Créneaux de {GRAN_LABEL[meeting.granularity]}.
+                  Cliquez-glissez pour peindre vos dispos. Réunion de {formatDuration(meeting.duration)}, créneaux de {GRAN_LABEL[meeting.granularity]}.
                 </Text>
               </Group>
               <StripeLegend />
@@ -245,7 +253,7 @@ export function GuestView({ token }: { token: string }) {
                 meeting={meeting}
                 tz={tz}
                 participants={participants}
-                statuses={statuses}
+                statuses={starts}
                 myFill={myFill}
                 editable
                 mySlots={mySlots}
@@ -257,9 +265,10 @@ export function GuestView({ token }: { token: string }) {
           <Tabs.Panel value="results" pt="md">
             <MeetingResults
               keys={keys}
-              statuses={statuses}
+              statuses={starts}
               participants={participants}
               granularity={meeting.granularity}
+              duration={meeting.duration}
               tz={tz}
             />
           </Tabs.Panel>

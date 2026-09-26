@@ -1,43 +1,49 @@
 import { Group, Text } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
 
-const STRIPES = [
-  { color: 'var(--mantine-color-green-3)', label: 'tout le monde (dont « si besoin »)' },
-  { color: 'var(--mantine-color-orange-6)', label: 'il manque 1 personne' },
-];
+function CheckSwatch({ bg, fg }: { bg: string; fg: string }) {
+  return (
+    <span
+      style={{
+        width: 18,
+        height: 14,
+        borderRadius: 3,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: bg,
+        color: fg,
+      }}
+    >
+      <IconCheck size={11} stroke={3} />
+    </span>
+  );
+}
 
-/** Legend of the slot highlighting: full match cell, then the muted stripe. */
+/** Legend of the per-slot results (a slot = a possible start time). */
 export function StripeLegend() {
   return (
     <Group gap="md">
       <Group gap={6}>
-        <span
-          style={{
-            width: 18,
-            height: 14,
-            borderRadius: 3,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--mantine-color-green-9)',
-            color: 'var(--mantine-color-green-3)',
-          }}
-        >
-          <IconCheck size={11} stroke={3} />
-        </span>
+        <CheckSwatch bg="var(--mantine-color-green-9)" fg="var(--mantine-color-green-3)" />
         <Text size="xs">tout le monde est dispo</Text>
       </Group>
-      <Text size="xs" c="dimmed">
-        · Liseré :
-      </Text>
-      {STRIPES.map((i) => (
-        <Group key={i.label} gap={6}>
-          <span
-            style={{ width: 4, height: 14, borderRadius: 2, background: i.color, opacity: 0.5 }}
-          />
-          <Text size="xs">{i.label}</Text>
-        </Group>
-      ))}
+      <Group gap={6}>
+        <CheckSwatch bg="var(--mantine-color-yellow-5)" fg="var(--mantine-color-dark-7)" />
+        <Text size="xs">tout le monde, dont « si besoin »</Text>
+      </Group>
+      <Group gap={6}>
+        <span
+          style={{
+            width: 4,
+            height: 14,
+            borderRadius: 2,
+            background: 'var(--mantine-color-orange-6)',
+            opacity: 0.5,
+          }}
+        />
+        <Text size="xs">il manque 1 personne</Text>
+      </Group>
       <Text size="xs" c="dimmed">
         · Survolez un créneau pour le détail.
       </Text>

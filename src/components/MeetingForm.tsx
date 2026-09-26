@@ -18,6 +18,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
+import { formatDuration } from '@/lib/time';
 import { noAutofill } from '@/lib/noAutofill';
 import type { MeetingConfig } from '@/lib/types';
 
@@ -65,6 +66,7 @@ export function MeetingForm({
     initial ? [toDate(initial.dateMin), toDate(initial.dateMax)] : [null, null],
   );
   const [granularity, setGranularity] = useState(String(initial?.granularity ?? 30));
+  const [duration, setDuration] = useState(String(initial?.duration ?? 60));
   const [dayStart, setDayStart] = useState(String(initial?.dayStart ?? 8));
   const [dayEnd, setDayEnd] = useState(String(initial?.dayEnd ?? 20));
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
@@ -87,6 +89,7 @@ export function MeetingForm({
       dateMin,
       dateMax,
       granularity: Number(granularity),
+      duration: Number(duration),
       dayStart: Number(dayStart),
       dayEnd: Number(dayEnd),
     };
@@ -112,6 +115,13 @@ export function MeetingForm({
     }
   }
 
+  // Durations: multiples of the granularity, up to 8h.
+  const step = Number(granularity);
+  const durationOptions = Array.from({ length: Math.floor(480 / step) }, (_, i) => {
+    const m = (i + 1) * step;
+    return { value: String(m), label: formatDuration(m) };
+  });
+
   return (
     <Stack gap="md">
       <TextInput
@@ -131,12 +141,26 @@ export function MeetingForm({
         allowSingleDateInRange
         required
       />
+      <Select
+        label="Durée de la réunion"
+        description="Un créneau n'est possible que si chacun est dispo sur toute la durée."
+        data={durationOptions}
+        value={duration}
+        onChange={(v) => v && setDuration(v)}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
       <Input.Wrapper label="Granularité des créneaux">
         <div>
           <SegmentedControl
             fullWidth
             value={granularity}
-            onChange={setGranularity}
+            onChange={(g) => {
+              setGranularity(g);
+              // Keep the duration a multiple of the granularity (round up).
+              const step = Number(g);
+              setDuration(String(Math.max(step, Math.ceil(Number(duration) / step) * step)));
+            }}
             data={[
               { value: '15', label: '15 min' },
               { value: '30', label: '30 min' },

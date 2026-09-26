@@ -105,19 +105,65 @@ export interface AvailabilityRange {
  * Collapse contiguous slots with the same people (and statuses) into ranges,
  * sorted chronologically.
  */
-export function computeRanges(
+/**
+ * Per-start statuses for a meeting of `duration` minutes: someone is available
+ * to start at a slot only if they are available on every slot the meeting
+ * covers ("si besoin" if any of them is). The meeting must also fit in the
+ * grid (all covered slots exist), so it never runs past the visible window.
+ */
+export function startStatuses(
   keys: string[],
   statuses: StatusMap,
+  granularity: number,
+  duration: number,
+): StatusMap {
+  const steps = Math.max(1, Math.round(duration / granularity));
+  const out: StatusMap = new Map();
+  for (const key of keys) {
+    const covered: Map<string, SlotStatus>[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      const st = statuses.get(i === 0 ? key : addMinutes(key, i * granularity));
+      if (!st) break;
+      covered.push(st);
+    }
+    const result = new Map<string, SlotStatus>();
+    if (covered.length === steps) {
+      for (const [id, first] of covered[0]) {
+        let status: SlotStatus = first;
+        let ok = true;
+        for (let i = 1; i < steps && ok; i += 1) {
+          const s = covered[i].get(id);
+          if (!s) ok = false;
+          else if (s === 'if_needed') status = 'if_needed';
+        }
+        if (ok) result.set(id, status);
+      }
+    }
+    out.set(key, result);
+  }
+  return out;
+}
+
+/**
+ * Collapse contiguous possible start times with the same people (and
+ * statuses) into ranges. A range spans from its first start to the end of a
+ * meeting started at its last start, i.e. the window the meeting fits in.
+ */
+export function computeRanges(
+  keys: string[],
+  starts: StatusMap,
   participants: GridParticipant[],
   granularity: number,
+  duration: number,
 ): AvailabilityRange[] {
   const nameOf = new Map(participants.map((p) => [p.id, p.name]));
   const ranges: AvailabilityRange[] = [];
   let current: AvailabilityRange | null = null;
   let currentSig = '';
+  let lastStart = '';
 
   for (const key of keys) {
-    const st = statuses.get(key);
+    const st = starts.get(key);
     if (!st || st.size === 0) {
       if (current) ranges.push(current);
       current = null;
@@ -126,20 +172,22 @@ export function computeRanges(
     }
     const entries = [...st.entries()].sort(([a], [b]) => a.localeCompare(b));
     const sig = entries.map(([id, s]) => `${id}=${s}`).join('|');
-    if (current && sig === currentSig && current.endUtc === key) {
-      current.endUtc = addMinutes(key, granularity);
+    if (current && sig === currentSig && addMinutes(lastStart, granularity) === key) {
+      current.endUtc = addMinutes(key, duration);
+      lastStart = key;
       continue;
     }
     if (current) ranges.push(current);
     current = {
       startUtc: key,
-      endUtc: addMinutes(key, granularity),
+      endUtc: addMinutes(key, duration),
       ids: entries.map(([id]) => id),
       names: entries.map(([id]) => nameOf.get(id) ?? '?'),
       count: entries.length,
       ifNeeded: entries.filter(([, s]) => s === 'if_needed').length,
     };
     currentSig = sig;
+    lastStart = key;
   }
   if (current) ranges.push(current);
   return ranges;

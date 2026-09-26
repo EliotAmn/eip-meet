@@ -117,6 +117,7 @@ model Meeting {
   dateMin     String // YYYY-MM-DD (inclusive)
   dateMax     String // YYYY-MM-DD (inclusive)
   granularity Int // slot length in minutes (15 | 30 | 60)
+  duration    Int      @default(60) // meeting length in minutes, multiple of granularity
   dayStart    Int // visible window start hour, viewer-local (0-23)
   dayEnd      Int // visible window end hour, viewer-local (1-24)
   ownerId     String

@@ -5,19 +5,22 @@ import { Stack, Paper, Group, Text, Badge, SegmentedControl, Switch, Box } from 
 import { IconUsers, IconMoodEmpty } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import { computeRanges, type GridParticipant, type StatusMap } from '@/lib/availability';
-import { formatRange } from '@/lib/time';
+import { formatDuration, formatRange } from '@/lib/time';
 
 export function MeetingResults({
   keys,
   statuses,
   participants,
   granularity,
+  duration,
   tz,
 }: {
   keys: string[];
+  /** Per start time: who can attend the full meeting from there. */
   statuses: StatusMap;
   participants: GridParticipant[];
   granularity: number;
+  duration: number;
   tz: string;
 }) {
   const total = participants.length;
@@ -27,8 +30,8 @@ export function MeetingResults({
   const now = useMemo(() => DateTime.utc().toISO()!, []);
 
   const ranges = useMemo(
-    () => computeRanges(keys, statuses, participants, granularity),
-    [keys, statuses, participants, granularity],
+    () => computeRanges(keys, statuses, participants, granularity, duration),
+    [keys, statuses, participants, granularity, duration],
   );
 
   const filtered = useMemo(() => {
@@ -103,21 +106,29 @@ export function MeetingResults({
         <Stack gap="xs">
           {filtered.map((r) => {
             const everyone = r.count === total;
-            // Dark green = everyone "yes"; light green = everyone, some "si besoin".
-            const shade = r.ifNeeded > 0 ? 3 : 8;
-            const accent = everyone ? `green.${shade}` : 'gray';
+            // Same colors as the grid: green = everyone "Dispo", yellow = everyone
+            // but some only "si besoin".
+            const hue = r.ifNeeded > 0 ? 'yellow' : 'green';
+            const shade = hue === 'yellow' ? 5 : 9;
+            const accent = everyone ? `${hue}.${shade}` : 'gray';
+            const window = Date.parse(r.endUtc) - Date.parse(r.startUtc);
             return (
               <Paper
                 key={`${r.startUtc}-${r.ids.join(',')}`}
                 withBorder
                 p="md"
                 radius="md"
-                style={everyone ? { borderColor: `var(--mantine-color-green-${shade})` } : undefined}
+                style={everyone ? { borderColor: `var(--mantine-color-${hue}-${shade})` } : undefined}
               >
                 <Group justify="space-between" wrap="nowrap" align="flex-start">
                   <Box>
                     <Text fw={600} tt="capitalize">
                       {formatRange(r.startUtc, r.endUtc, tz)}
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={2}>
+                      {window > duration * 60_000
+                        ? `Réunion de ${formatDuration(duration)} à placer dans cette plage`
+                        : `Réunion de ${formatDuration(duration)}`}
                     </Text>
                     {r.ifNeeded > 0 && (
                       <Text size="xs" c="dimmed" mt={2}>

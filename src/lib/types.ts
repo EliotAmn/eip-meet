@@ -64,6 +64,7 @@ export interface MeetingConfig {
   dateMin: string;
   dateMax: string;
   granularity: number;
+  duration: number; // meeting length in minutes (multiple of granularity)
   dayStart: number;
   dayEnd: number;
 }
@@ -118,6 +119,7 @@ export interface MeetingInput {
   dateMin: string;
   dateMax: string;
   granularity: number;
+  duration: number;
   dayStart: number;
   dayEnd: number;
 }

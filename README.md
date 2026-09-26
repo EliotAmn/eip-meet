@@ -18,8 +18,11 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 - Le fuseau horaire du compte se règle dans le menu utilisateur.
 
 ### Réunions
-- Une réunion = une **période** (date min → max), une granularité (15 / 30 / 60 min) et une
-  plage horaire affichée (en heure locale de chacun).
+- Une réunion = une **période** (date min → max), une **durée** (15 min à 8h), une
+  granularité (15 / 30 / 60 min) et une plage horaire affichée (en heure locale de chacun).
+- **Durée** : chaque case de la grille est une heure de début possible. Une personne n'est
+  comptée disponible à 9h pour une réunion de 2h que si elle l'est de 9h à 11h ; la réunion
+  doit aussi tenir entièrement dans la plage horaire affichée.
 - **Membres** : des comptes, invités par email (même avant leur première connexion).
   Leurs dispos sont **calculées depuis leur calendrier** : ils n'ont rien à remplir.
 - **Invités sans compte** : chacun reçoit un lien personnel `/g/<token>` et peint ses
@@ -30,18 +33,17 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
   supprime la réunion.
 
 ### Lecture des résultats
-- **Créneaux où tout le monde est « Dispo »** : fond vert foncé avec une icône ✓ vert clair,
-  pour voir d'un coup d'œil où la réunion est possible.
-- Sinon, un **liseré** à gauche du créneau résume la dispo du groupe (volontairement
-  atténué) : vert clair = tout le monde dont au moins un « si besoin », orange = il manque
-  1 personne, rouge = il en manque plus.
-- **Survol d'un créneau** : statut de chaque personne et l'heure que c'est chez elle.
-- Onglet **Créneaux possibles** : plages triées de la plus proche à la plus lointaine,
-  filtrables par nombre minimum de participants.
-- Ce qui vous concerne est affiché de façon vive : vos indisponibilités (rouge = indisponible,
-  jaune = si besoin, mêmes couleurs que dans votre calendrier) ou, pour un invité, ce qu'il
-  peint. Les informations globales (liseré du groupe, bandeaux de réunion dans le calendrier)
-  sont atténuées.
+Sur une réunion, seuls les **résultats par créneau** (heure de début) sont mis en avant :
+- **✓ sur fond vert foncé** : tout le monde est « Dispo » sur toute la durée.
+- **✓ sur fond jaune** : tout le monde est disponible, dont au moins un « si besoin ».
+- Sinon, un **liseré** atténué à gauche : orange = il manque 1 personne, rouge = il en
+  manque plus.
+- **Survol d'un créneau** : statut de chaque personne sur la durée de la réunion et l'heure
+  que c'est chez elle.
+- Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
+  de la plus proche à la plus lointaine, filtrables par nombre minimum de participants.
+- Vos propres indispos y restent discrètes (hachure légère) : elles se gèrent dans votre
+  calendrier. Un invité voit sa propre peinture, qu'il modifie sur sa page.
 
 ### Fuseaux horaires
 Tout est stocké en instants absolus (UTC) et réaffiché dans le fuseau de celui qui regarde.

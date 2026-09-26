@@ -120,6 +120,13 @@ export function validateMeeting(body: unknown): MeetingInput {
   }
   const granularity = Number(b.granularity);
   if (!GRANULARITIES.includes(granularity)) throw new ValidationError('Granularité invalide.');
+  const duration = Number(b.duration ?? granularity);
+  if (!Number.isInteger(duration) || duration < granularity || duration > 12 * 60) {
+    throw new ValidationError('Durée de réunion invalide (entre la granularité et 12h).');
+  }
+  if (duration % granularity !== 0) {
+    throw new ValidationError('La durée doit être un multiple de la granularité.');
+  }
   const dayStart = Number(b.dayStart);
   const dayEnd = Number(b.dayEnd);
   if (
@@ -131,7 +138,10 @@ export function validateMeeting(body: unknown): MeetingInput {
   ) {
     throw new ValidationError('Plage horaire invalide.');
   }
-  return { title, dateMin, dateMax, granularity, dayStart, dayEnd };
+  if (duration > (dayEnd - dayStart) * 60) {
+    throw new ValidationError('La réunion est plus longue que la plage horaire affichée.');
+  }
+  return { title, dateMin, dateMax, granularity, duration, dayStart, dayEnd };
 }
 
 export function normalizeEmails(value: unknown): string[] {
