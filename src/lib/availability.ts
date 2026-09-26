@@ -28,6 +28,8 @@ export interface DayEval {
   minutes: number; // window length
   /** Per participant: result for a meeting starting at minute s (0 / 1 / 2). */
   starts: Uint8Array[];
+  /** Minute ranges [from, to) where at least one person who answered is not available. */
+  blocked: [number, number][];
 }
 
 export interface MeetingEval {
@@ -82,6 +84,21 @@ function startResults(avail: Uint8Array, duration: number): Uint8Array {
   return out;
 }
 
+/** Minute ranges where at least one of these people is not available. */
+function blockedRanges(avails: Uint8Array[], minutes: number): [number, number][] {
+  const out: [number, number][] = [];
+  let from = -1;
+  for (let m = 0; m <= minutes; m += 1) {
+    const blocked = m < minutes && avails.some((a) => a[m] === 0);
+    if (blocked && from < 0) from = m;
+    if (!blocked && from >= 0) {
+      out.push([from, m]);
+      from = -1;
+    }
+  }
+  return out;
+}
+
 /**
  * Evaluate a meeting for the viewer's timezone. `myIntervals` overrides the
  * viewing guest's saved painting (live, unsaved edits).
@@ -95,6 +112,9 @@ export function evaluateMeeting(
   const windows = dayWindows(meeting, tz);
   const participants: GridParticipant[] = [];
   const perDayAvail: Uint8Array[][] = windows.map(() => []);
+  // Who counts for the "someone is not available" hatch: people who answered,
+  // except the viewing guest (their own painting is drawn as is).
+  const countsAsBlocking: boolean[] = [];
 
   for (const m of detail.members) {
     participants.push({
@@ -106,6 +126,7 @@ export function evaluateMeeting(
       isMe: viewer.kind === 'member' && viewer.memberId === m.id,
       answered: m.calendarFilled,
     });
+    countsAsBlocking.push(m.calendarFilled);
     const busy = toMs(m.busy);
     const soft = toMs(m.soft);
     windows.forEach((w, d) => {
@@ -131,6 +152,7 @@ export function evaluateMeeting(
       isMe,
       answered: intervals.length > 0,
     });
+    countsAsBlocking.push(!isMe && intervals.length > 0);
     windows.forEach((w, d) => {
       const arr = new Uint8Array(w.minutes);
       for (const i of intervals) markInside(arr, w.start, i.start, i.end, i.status === 'yes' ? 2 : 1);
@@ -146,6 +168,7 @@ export function evaluateMeeting(
       start: w.start,
       minutes: w.minutes,
       starts: perDayAvail[d].map((a) => startResults(a, meeting.duration)),
+      blocked: blockedRanges(perDayAvail[d].filter((_, p) => countsAsBlocking[p]), w.minutes),
     })),
   };
 }

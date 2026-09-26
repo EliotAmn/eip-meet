@@ -36,20 +36,23 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 
 ### Lecture des résultats
 Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la minute près :
-- **✓ sur fond vert clair** : la plage dans laquelle la réunion tient avec tout le monde
+- **✓ sur fond vert** : la plage dans laquelle la réunion tient avec tout le monde
   « Dispo » (ex. 8h15 - 10h15).
-- **✓ sur fond jaune clair** : tout le monde est disponible, dont au moins un « si besoin ».
-- Convention de couleurs : **clair = ce qui convient à tout le monde**, **foncé = ce que
-  l'invité a peint** (vert foncé = dispo, jaune foncé = si besoin) ; les résultats sont
+- **✓ sur fond jaune** : tout le monde est disponible, dont au moins un « si besoin ».
+- Convention de couleurs : **vif = ce qui convient à tout le monde**, **atténué (teinte
+  transparente) = ce que l'invité a peint** (vert = dispo, jaune = si besoin) ; les résultats sont
   légèrement en retrait pour laisser voir sa propre peinture.
-- Sinon, un **liseré** atténué à gauche : orange = il manque 1 personne, rouge = il en
-  manque plus.
+- **Hachure rouge** sur chaque minute où au moins une personne ayant répondu n'est pas
+  disponible (vous comme les autres ; un invité ne voit pas ses propres zones non peintes
+  hachurées).
+- **Liseré orange** atténué à gauche, en plus : il ne manque qu'une personne pour une
+  réunion commençant là.
 - **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de
   chaque personne sur toute la durée et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
   de la plus proche à la plus lointaine, filtrables par nombre minimum de participants.
-- Vos propres indispos y restent discrètes (hachure légère) : elles se gèrent dans votre
-  calendrier. Un invité voit sa propre peinture, qu'il modifie sur sa page.
+- Vos propres « si besoin » y restent discrets (teinte jaune légère) : ils se gèrent dans
+  votre calendrier. Un invité voit sa propre peinture, qu'il modifie sur sa page.
 
 ### Fuseaux horaires
 Tout est stocké en instants absolus (UTC) et réaffiché dans le fuseau de celui qui regarde.

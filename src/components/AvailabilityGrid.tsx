@@ -311,6 +311,14 @@ export function AvailabilityGrid({
               />
             ))}
 
+            {ev.days[d].blocked.map(([s, e], i) => (
+              <div
+                key={`x-${i}`}
+                className={`${classes.layer} ${classes.blocked}`}
+                style={{ top: s * pxPerMin, height: (e - s) * pxPerMin }}
+              />
+            ))}
+
             {dayBlocks(ranges, d, total).map((b, i) => {
               const style = { top: b.startMin * pxPerMin, height: (b.endMin - b.startMin) * pxPerMin };
               if (b.kind === 'match' || b.kind === 'maybe') {
@@ -324,19 +332,9 @@ export function AvailabilityGrid({
                   </div>
                 );
               }
-              return (
-                <div
-                  key={`r-${i}`}
-                  className={`${classes.layer} ${classes.stripe}`}
-                  style={{
-                    ...style,
-                    background:
-                      b.kind === 'missing1'
-                        ? 'var(--mantine-color-orange-6)'
-                        : 'var(--mantine-color-red-6)',
-                  }}
-                />
-              );
+              // Several people missing: the red hatch already says it.
+              if (b.kind !== 'missing1') return null;
+              return <div key={`r-${i}`} className={`${classes.layer} ${classes.stripe}`} style={style} />;
             })}
 
             {hover?.day === d && (

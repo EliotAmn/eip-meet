@@ -49,10 +49,8 @@ import { MeetingForm, useAccountEmails } from './MeetingForm';
 import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 
-// My own unavailabilities come from my calendar, where they are edited: on the
-// meeting page they stay discreet, only the per-slot results stand out.
-const MY_BUSY_FILL =
-  'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 22%, transparent) 0 4px, transparent 4px 8px)';
+// My "si besoin" come from my calendar, where they are edited: on the meeting
+// page they stay discreet. Busy time (mine and everyone's) is the grid's red hatch.
 const MY_SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 16%, transparent)';
 
 export function periodLabel(dateMin: string, dateMax: string) {
@@ -124,7 +122,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const isOwner = viewer.kind === 'member' && viewer.role === 'owner';
   const myMember = detail.members.find((m) => viewer.kind === 'member' && m.id === viewer.memberId);
 
-  // My own unavailabilities (discreet), clipped to each day's window.
+  // My own "si besoin" (discreet), clipped to each day's window.
   const myBlocks = (d: number): MyBlock[] => {
     if (!myMember?.calendarFilled) return [];
     const day = ev.days[d];
@@ -135,7 +133,6 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
       if (b > a) out.push({ startMin: a, endMin: b, background });
     };
     myMember.soft.forEach((i) => clip(i, MY_SOFT_FILL));
-    myMember.busy.forEach((i) => clip(i, MY_BUSY_FILL));
     return out;
   };
 
@@ -424,8 +421,8 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Stack gap="sm">
             {myMember && (
               <Text size="xs" c="dimmed">
-                Les blocs ✓ montrent où la réunion tient, à la minute près. Vos indispos (hachuré, jaune = si
-                besoin) :{' '}
+                Les blocs ✓ montrent où la réunion tient, à la minute près. Vos « si besoin » (teinte jaune)
+                viennent de votre calendrier :{' '}
                 <Anchor component={Link} href="/" size="xs">
                   le modifier
                 </Anchor>

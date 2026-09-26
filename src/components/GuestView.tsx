@@ -147,9 +147,9 @@ export function GuestView({ token }: { token: string }) {
         {
           startMin: a,
           endMin: b,
-          // My painting is dark; what matches for everyone is drawn light on top.
+          // My painting is dim; what matches for everyone is drawn vivid on top.
           background:
-            i.status === 'yes' ? 'var(--mantine-color-green-8)' : 'var(--mantine-color-yellow-7)',
+            i.status === 'yes' ? 'var(--mantine-color-green-light)' : 'var(--mantine-color-yellow-light)',
         },
       ];
     });
@@ -270,8 +270,8 @@ export function GuestView({ token }: { token: string }) {
                   Vos dispos :
                 </Text>
                 {[
-                  { color: 'var(--mantine-color-green-8)', label: 'dispo' },
-                  { color: 'var(--mantine-color-yellow-7)', label: 'si besoin' },
+                  { color: 'var(--mantine-color-green-light)', label: 'dispo' },
+                  { color: 'var(--mantine-color-yellow-light)', label: 'si besoin' },
                 ].map((s) => (
                   <Group key={s.label} gap={6}>
                     <span style={{ width: 18, height: 14, borderRadius: 3, background: s.color }} />
@@ -279,7 +279,7 @@ export function GuestView({ token }: { token: string }) {
                   </Group>
                 ))}
                 <Text size="xs" c="dimmed">
-                  (foncé = ce que vous peignez, clair = ce qui convient à tout le monde)
+                  (atténué = ce que vous peignez, vif = ce qui convient à tout le monde)
                 </Text>
               </Group>
               <StripeLegend />

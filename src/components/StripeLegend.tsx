@@ -25,12 +25,24 @@ export function StripeLegend() {
   return (
     <Group gap="md">
       <Group gap={6}>
-        <CheckSwatch bg="var(--mantine-color-green-3)" fg="var(--mantine-color-green-9)" />
+        <CheckSwatch bg="var(--mantine-color-green-6)" fg="var(--mantine-color-white)" />
         <Text size="xs">tout le monde est dispo</Text>
       </Group>
       <Group gap={6}>
-        <CheckSwatch bg="var(--mantine-color-yellow-2)" fg="var(--mantine-color-yellow-9)" />
+        <CheckSwatch bg="var(--mantine-color-yellow-5)" fg="var(--mantine-color-yellow-9)" />
         <Text size="xs">tout le monde, dont « si besoin »</Text>
+      </Group>
+      <Group gap={6}>
+        <span
+          style={{
+            width: 18,
+            height: 14,
+            borderRadius: 3,
+            background:
+              'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 30%, transparent) 0 4px, transparent 4px 8px)',
+          }}
+        />
+        <Text size="xs">quelqu'un n'est pas dispo</Text>
       </Group>
       <Group gap={6}>
         <span
