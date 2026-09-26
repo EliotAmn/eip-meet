@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         title: input.title,
         dateMin: input.dateMin,
         dateMax: input.dateMax,
-        granularity: input.granularity,
+        duration: input.duration,
         dayStart: input.dayStart,
         dayEnd: input.dayEnd,
         ownerId: user.id,

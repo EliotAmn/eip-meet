@@ -266,6 +266,7 @@ export function PersonalCalendar({
             eventContent={renderEvent}
             scrollTime="07:00:00"
             slotDuration="00:30:00"
+            snapDuration="00:15:00"
             slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             dayMaxEvents

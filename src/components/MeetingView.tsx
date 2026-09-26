@@ -40,16 +40,15 @@ import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
 import { noAutofill } from '@/lib/noAutofill';
 import { avatarColor, initials } from '@/lib/avatar';
-import { buildAvailability, meetingSlotKeys, startStatuses } from '@/lib/availability';
+import { computeRanges, evaluateMeeting } from '@/lib/availability';
 import { formatDuration } from '@/lib/time';
-import type { MeetingDetail, MemberAvailability } from '@/lib/types';
-import { AvailabilityGrid } from './AvailabilityGrid';
+import type { Interval, MeetingDetail, MemberAvailability } from '@/lib/types';
+import { AvailabilityGrid, type MyBlock } from './AvailabilityGrid';
 import { CopyLinkButton } from './CopyLinkButton';
 import { MeetingForm, useAccountEmails } from './MeetingForm';
 import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 
-const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
 // My own unavailabilities come from my calendar, where they are edited: on the
 // meeting page they stay discreet, only the per-slot results stand out.
 const MY_BUSY_FILL =
@@ -100,19 +99,10 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
     load();
   }, [load]);
 
-  const keys = useMemo(() => (detail ? meetingSlotKeys(detail.meeting, tz) : []), [detail, tz]);
-  const { participants, statuses } = useMemo(
-    () => (detail ? buildAvailability(detail, tz, keys) : { participants: [], statuses: new Map() }),
-    [detail, tz, keys],
-  );
-  // Who can attend a meeting of the full duration, per possible start time.
-  const starts = useMemo(
-    () =>
-      detail
-        ? startStatuses(keys, statuses, detail.meeting.granularity, detail.meeting.duration)
-        : new Map(),
-    [detail, keys, statuses],
-  );
+  // Minute-precision evaluation: who can attend the whole meeting from each start.
+  const ev = useMemo(() => (detail ? evaluateMeeting(detail, tz) : null), [detail, tz]);
+  const ranges = useMemo(() => (ev ? computeRanges(ev) : []), [ev]);
+  const participants = ev?.participants ?? [];
 
   if (error) {
     return (
@@ -121,7 +111,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
       </Alert>
     );
   }
-  if (!detail) {
+  if (!detail || !ev) {
     return (
       <Center h="50vh">
         <Loader />
@@ -132,15 +122,21 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const { meeting, viewer } = detail;
   const isAdmin = viewer.kind === 'member' && viewer.isAdmin;
   const isOwner = viewer.kind === 'member' && viewer.role === 'owner';
-  const me = participants.find((p) => p.isMe);
   const myMember = detail.members.find((m) => viewer.kind === 'member' && m.id === viewer.memberId);
 
-  // My own status as the cell background: hatched = busy, yellow = si besoin.
-  const myFill = (key: string) => {
-    if (!me || !me.answered) return null;
-    const s = statuses.get(key)?.get(me.id);
-    if (s === 'yes') return null;
-    return s === 'if_needed' ? MY_SOFT_FILL : MY_BUSY_FILL;
+  // My own unavailabilities (discreet), clipped to each day's window.
+  const myBlocks = (d: number): MyBlock[] => {
+    if (!myMember?.calendarFilled) return [];
+    const day = ev.days[d];
+    const out: MyBlock[] = [];
+    const clip = ([s, e]: Interval, background: string) => {
+      const a = Math.max(0, (Date.parse(s) - day.start) / 60_000);
+      const b = Math.min(day.minutes, (Date.parse(e) - day.start) / 60_000);
+      if (b > a) out.push({ startMin: a, endMin: b, background });
+    };
+    myMember.soft.forEach((i) => clip(i, MY_SOFT_FILL));
+    myMember.busy.forEach((i) => clip(i, MY_BUSY_FILL));
+    return out;
   };
 
   async function act(fn: () => Promise<unknown>, message?: string) {
@@ -214,7 +210,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Title order={3}>{meeting.title}</Title>
           <Text size="sm" c="dimmed">
             {periodLabel(meeting.dateMin, meeting.dateMax)} · réunion de{' '}
-            {formatDuration(meeting.duration)} · créneaux de {GRAN_LABEL[meeting.granularity]} ·{' '}
+            {formatDuration(meeting.duration)} ·{' '}
             {meeting.dayStart}h-{meeting.dayEnd}h (heure locale)
           </Text>
         </div>
@@ -379,8 +375,8 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
                 <Text size="sm" fw={500} truncate>
                   {g.name}
                 </Text>
-                <Badge size="sm" variant="light" color={g.slots.length > 0 ? 'teal' : 'gray'}>
-                  {g.slots.length > 0 ? 'a répondu' : 'en attente'}
+                <Badge size="sm" variant="light" color={g.intervals.length > 0 ? 'teal' : 'gray'}>
+                  {g.intervals.length > 0 ? 'a répondu' : 'en attente'}
                 </Badge>
               </Group>
               {isAdmin && g.token && (
@@ -428,7 +424,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Stack gap="sm">
             {myMember && (
               <Text size="xs" c="dimmed">
-                Chaque case = une heure de début possible. Vos indispos (hachuré, jaune = si
+                Les blocs ✓ montrent où la réunion tient, à la minute près. Vos indispos (hachuré, jaune = si
                 besoin) :{' '}
                 <Anchor component={Link} href="/" size="xs">
                   le modifier
@@ -440,18 +436,17 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
             <AvailabilityGrid
               meeting={meeting}
               tz={tz}
-              participants={participants}
-              statuses={starts}
-              myFill={myFill}
+              ev={ev}
+              ranges={ranges}
+              rowMinutes={30}
+              myBlocks={myBlocks}
             />
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="results" pt="md">
           <MeetingResults
-            keys={keys}
-            statuses={starts}
+            ranges={ranges}
             participants={participants}
-            granularity={meeting.granularity}
             duration={meeting.duration}
             tz={tz}
           />

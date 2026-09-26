@@ -4,22 +4,18 @@ import { useMemo, useState } from 'react';
 import { Stack, Paper, Group, Text, Badge, SegmentedControl, Switch, Box } from '@mantine/core';
 import { IconUsers, IconMoodEmpty } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
-import { computeRanges, type GridParticipant, type StatusMap } from '@/lib/availability';
+import type { AvailabilityRange, GridParticipant } from '@/lib/availability';
 import { formatDuration, formatRange } from '@/lib/time';
 
 export function MeetingResults({
-  keys,
-  statuses,
+  ranges,
   participants,
-  granularity,
   duration,
   tz,
 }: {
-  keys: string[];
-  /** Per start time: who can attend the full meeting from there. */
-  statuses: StatusMap;
+  /** Windows in which the meeting fits (see computeRanges). */
+  ranges: AvailabilityRange[];
   participants: GridParticipant[];
-  granularity: number;
   duration: number;
   tz: string;
 }) {
@@ -29,10 +25,6 @@ export function MeetingResults({
   const [sortMode, setSortMode] = useState<'time' | 'best'>('time');
   const now = useMemo(() => DateTime.utc().toISO()!, []);
 
-  const ranges = useMemo(
-    () => computeRanges(keys, statuses, participants, granularity, duration),
-    [keys, statuses, participants, granularity, duration],
-  );
 
   const filtered = useMemo(() => {
     let r = ranges.filter((x) => x.count >= Math.min(minCount, total));

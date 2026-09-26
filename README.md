@@ -9,7 +9,8 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 ### Mon calendrier (vue principale)
 - On y saisit ses **indisponibilités** : « Indisponible » ou « Si besoin (à éviter) ».
   Tout ce qui n'est pas indisponible est considéré comme disponible.
-- Glisser sur le calendrier (ou cliquer) pour en créer une ; ponctuelle ou récurrente :
+- Glisser sur le calendrier (ou cliquer) pour en créer une, les heures se saisissant à la
+  minute près ; ponctuelle ou récurrente :
   tous les jours, toutes les N semaines (jours au choix), tous les mois, avec une date
   de fin optionnelle.
 - Modifier / supprimer une occurrence comme dans Apple Calendar : **cet événement /
@@ -18,28 +19,30 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 - Le fuseau horaire du compte se règle dans le menu utilisateur.
 
 ### Réunions
-- Une réunion = une **période** (date min → max), une **durée** (15 min à 8h), une
-  granularité (15 / 30 / 60 min) et une plage horaire affichée (en heure locale de chacun).
-- **Durée** : chaque case de la grille est une heure de début possible. Une personne n'est
-  comptée disponible à 9h pour une réunion de 2h que si elle l'est de 9h à 11h ; la réunion
-  doit aussi tenir entièrement dans la plage horaire affichée.
+- Une réunion = une **période** (date min → max), une **durée** saisie librement (heures +
+  minutes, de 5 min à 12h) et une plage horaire affichée (en heure locale de chacun).
+- **Calcul à la minute près** : une personne n'est comptée disponible pour une réunion de 2h
+  commençant à 9h que si elle l'est de 9h à 11h. Un membre libre à partir de 8h15 est pris en
+  compte à 8h15. La réunion doit aussi tenir entièrement dans la plage horaire affichée.
 - **Membres** : des comptes, invités par email (même avant leur première connexion).
   Leurs dispos sont **calculées depuis leur calendrier** : ils n'ont rien à remplir.
 - **Invités sans compte** : chacun reçoit un lien personnel `/g/<token>` et peint ses
-  dispos (« Dispo » / « Si besoin »). Glisser sur des créneaux déjà peints du même type
-  les efface.
+  dispos (« Dispo » / « Si besoin ») sur une grille dont il choisit le pas : 15 min, 30 min
+  (par défaut) ou 1h. Ses dispos sont enregistrées comme des plages horaires : changer de
+  pas ne perd rien. Glisser sur des créneaux déjà peints du même type les efface.
 - **Rôles** : le créateur est admin et peut nommer d'autres admins. Les admins gèrent les
   paramètres, les membres et les invités (popup « Participants ») ; seul le créateur
   supprime la réunion.
 
 ### Lecture des résultats
-Sur une réunion, seuls les **résultats par créneau** (heure de début) sont mis en avant :
-- **✓ sur fond vert foncé** : tout le monde est « Dispo » sur toute la durée.
+Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la minute près :
+- **✓ sur fond vert foncé** : la plage dans laquelle la réunion tient avec tout le monde
+  « Dispo » (ex. 8h15 - 10h15).
 - **✓ sur fond jaune** : tout le monde est disponible, dont au moins un « si besoin ».
 - Sinon, un **liseré** atténué à gauche : orange = il manque 1 personne, rouge = il en
   manque plus.
-- **Survol d'un créneau** : statut de chaque personne sur la durée de la réunion et l'heure
-  que c'est chez elle.
+- **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de
+  chaque personne sur toute la durée et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
   de la plus proche à la plus lointaine, filtrables par nombre minimum de participants.
 - Vos propres indispos y restent discrètes (hachure légère) : elles se gèrent dans votre

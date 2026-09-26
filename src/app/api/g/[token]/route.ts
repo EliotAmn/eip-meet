@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { buildMeetingDetail } from '@/lib/server';
 import { isValidTimezone } from '@/lib/validate';
+import { normalizeIntervals } from '@/lib/intervals';
+import { GUEST_STEPS } from '@/lib/types';
 
 type Ctx = { params: Promise<{ token: string }> };
-
-const ISO_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?Z$/;
 
 async function guestFor(ctx: Ctx) {
   const { token } = await ctx.params;
@@ -24,37 +24,44 @@ export async function GET(_request: Request, ctx: Ctx) {
   return NextResponse.json(detail);
 }
 
-/** Replace the guest's painted availability. */
+/** Replace the guest's painted availability (intervals) and grid step. */
 export async function PUT(request: Request, ctx: Ctx) {
   const guest = await guestFor(ctx);
   if (!guest) return NextResponse.json({ error: 'Lien invalide.' }, { status: 404 });
 
   const body = (await request.json().catch(() => null)) as
-    | { slots?: unknown; timezone?: unknown }
+    | { intervals?: unknown; timezone?: unknown; step?: unknown }
     | null;
-  if (!Array.isArray(body?.slots)) {
-    return NextResponse.json({ error: 'Champ "slots" manquant.' }, { status: 400 });
+  if (!Array.isArray(body?.intervals)) {
+    return NextResponse.json({ error: 'Champ "intervals" manquant.' }, { status: 400 });
   }
-  const byStart = new Map<string, 'yes' | 'if_needed'>();
-  for (const raw of body.slots) {
-    if (typeof raw !== 'object' || raw === null) continue;
-    const { start, status } = raw as { start?: unknown; status?: unknown };
-    if (typeof start !== 'string' || !ISO_UTC_RE.test(start)) continue;
-    byStart.set(start, status === 'if_needed' ? 'if_needed' : 'yes');
-  }
-  if (byStart.size > 20000) {
-    return NextResponse.json({ error: 'Trop de créneaux.' }, { status: 400 });
+  const intervals = normalizeIntervals(body.intervals);
+  if (intervals.length > 5000) {
+    return NextResponse.json({ error: 'Trop de plages.' }, { status: 400 });
   }
   const timezone = isValidTimezone(body.timezone) ? body.timezone : undefined;
+  const step = (GUEST_STEPS as readonly number[]).includes(Number(body.step))
+    ? Number(body.step)
+    : undefined;
 
   await prisma.$transaction([
     prisma.guestSlot.deleteMany({ where: { guestId: guest.id } }),
     prisma.guestSlot.createMany({
-      data: Array.from(byStart, ([startUtc, status]) => ({ guestId: guest.id, startUtc, status })),
+      data: intervals.map((i) => ({
+        guestId: guest.id,
+        startUtc: i.start,
+        endUtc: i.end,
+        status: i.status,
+      })),
     }),
-    ...(timezone
-      ? [prisma.guest.update({ where: { id: guest.id }, data: { timezone } })]
+    ...(timezone || step
+      ? [
+          prisma.guest.update({
+            where: { id: guest.id },
+            data: { ...(timezone ? { timezone } : {}), ...(step ? { step } : {}) },
+          }),
+        ]
       : []),
   ]);
-  return NextResponse.json({ ok: true, count: byStart.size });
+  return NextResponse.json({ ok: true, count: intervals.length });
 }

@@ -116,8 +116,7 @@ model Meeting {
   title       String
   dateMin     String // YYYY-MM-DD (inclusive)
   dateMax     String // YYYY-MM-DD (inclusive)
-  granularity Int // slot length in minutes (15 | 30 | 60)
-  duration    Int      @default(60) // meeting length in minutes, multiple of granularity
+  duration    Int      @default(60) // meeting length in minutes (any value, minute precision)
   dayStart    Int // visible window start hour, viewer-local (0-23)
   dayEnd      Int // visible window end hour, viewer-local (1-24)
   ownerId     String
@@ -150,16 +149,19 @@ model Guest {
   name      String
   token     String   @unique @default(cuid())
   timezone  String?
+  step      Int      @default(30) // painting grid step chosen by the guest (15 | 30 | 60)
   createdAt DateTime @default(now())
 
   meeting Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   slots   GuestSlot[]
 }
 
+// A painted availability interval of a guest: [startUtc, endUtc).
 model GuestSlot {
   id       String @id @default(cuid())
   guestId  String
-  startUtc String // ISO-8601 UTC instant of the slot start
+  startUtc String // ISO-8601 UTC
+  endUtc   String // ISO-8601 UTC (exclusive)
   status   String @default("yes") // "yes" | "if_needed"
 
   guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)

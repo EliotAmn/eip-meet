@@ -34,30 +34,30 @@ import {
 } from '@tabler/icons-react';
 import { apiFetch } from '@/lib/api';
 import { avatarColor, initials } from '@/lib/avatar';
-import { buildAvailability, meetingSlotKeys, startStatuses } from '@/lib/availability';
+import { computeRanges, evaluateMeeting } from '@/lib/availability';
 import { detectTimezone, formatDuration, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
-import type { MeetingDetail, SlotStatus } from '@/lib/types';
-import { AvailabilityGrid, type PaintMode } from './AvailabilityGrid';
+import { GUEST_STEPS, type MeetingDetail } from '@/lib/types';
+import { fromIso, toIso, type MsInterval } from '@/lib/intervals';
+import { AvailabilityGrid, type MyBlock, type PaintMode } from './AvailabilityGrid';
 import { MeetingResults } from './MeetingResults';
 import { StripeLegend } from './StripeLegend';
 import { periodLabel } from './MeetingView';
 import { APP_NAME } from '@/lib/brand';
 
-const GRAN_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1 heure' };
+const STEP_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1h' };
 
-function sameSlots(a: Map<string, SlotStatus>, b: Map<string, SlotStatus>) {
-  if (a.size !== b.size) return false;
-  for (const [k, v] of a) if (b.get(k) !== v) return false;
-  return true;
-}
+const sameIntervals = (a: MsInterval[], b: MsInterval[]) =>
+  a.length === b.length &&
+  a.every((x, i) => x.start === b[i].start && x.end === b[i].end && x.status === b[i].status);
 
 export function GuestView({ token }: { token: string }) {
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tz, setTz] = useState('UTC');
-  const [mySlots, setMySlots] = useState<Map<string, SlotStatus>>(new Map());
-  const [saved, setSaved] = useState<Map<string, SlotStatus>>(new Map());
+  const [myIntervals, setMyIntervals] = useState<MsInterval[]>([]);
+  const [saved, setSaved] = useState<MsInterval[]>([]);
+  const [step, setStep] = useState(30); // painting grid step, remembered per guest
   const [paintMode, setPaintMode] = useState<PaintMode>('yes');
   const [saving, setSaving] = useState(false);
 
@@ -69,9 +69,10 @@ export function GuestView({ token }: { token: string }) {
       setDetail(d);
       const guestId = d.viewer.kind === 'guest' ? d.viewer.guestId : null;
       const me = d.guests.find((g) => g.id === guestId);
-      const map = new Map((me?.slots ?? []).map((s) => [s.start, s.status] as const));
-      setMySlots(map);
-      setSaved(new Map(map));
+      const intervals = fromIso(me?.intervals ?? []);
+      setMyIntervals(intervals);
+      setSaved(intervals);
+      if (me?.step) setStep(me.step);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
@@ -80,7 +81,7 @@ export function GuestView({ token }: { token: string }) {
     load();
   }, [load]);
 
-  const dirty = !sameSlots(mySlots, saved);
+  const dirty = !sameIntervals(myIntervals, saved);
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (dirty) {
@@ -92,32 +93,22 @@ export function GuestView({ token }: { token: string }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
-  const keys = useMemo(() => (detail ? meetingSlotKeys(detail.meeting, tz) : []), [detail, tz]);
-  const { participants, statuses } = useMemo(
-    () =>
-      detail ? buildAvailability(detail, tz, keys, mySlots) : { participants: [], statuses: new Map() },
-    [detail, tz, keys, mySlots],
+  // Minute-precision evaluation, with my unsaved painting applied live.
+  const ev = useMemo(
+    () => (detail ? evaluateMeeting(detail, tz, myIntervals) : null),
+    [detail, tz, myIntervals],
   );
-  // Who can attend a meeting of the full duration, per possible start time.
-  const starts = useMemo(
-    () =>
-      detail
-        ? startStatuses(keys, statuses, detail.meeting.granularity, detail.meeting.duration)
-        : new Map(),
-    [detail, keys, statuses],
-  );
+  const ranges = useMemo(() => (ev ? computeRanges(ev) : []), [ev]);
+  const participants = ev?.participants ?? [];
 
   async function save() {
     setSaving(true);
     try {
       await apiFetch(`/api/g/${token}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          slots: Array.from(mySlots, ([start, status]) => ({ start, status })),
-          timezone: tz,
-        }),
+        body: JSON.stringify({ intervals: toIso(myIntervals), timezone: tz, step }),
       });
-      setSaved(new Map(mySlots));
+      setSaved(myIntervals);
       notifications.show({ color: 'teal', message: 'Disponibilités enregistrées.' });
     } catch (err) {
       notifications.show({ color: 'red', message: err instanceof Error ? err.message : 'Erreur.' });
@@ -135,7 +126,7 @@ export function GuestView({ token }: { token: string }) {
       </Container>
     );
   }
-  if (!detail) {
+  if (!detail || !ev) {
     return (
       <Center h="60vh">
         <Loader />
@@ -145,11 +136,22 @@ export function GuestView({ token }: { token: string }) {
 
   const { meeting, viewer } = detail;
   const myName = viewer.kind === 'guest' ? viewer.name : '';
-  const myFill = (key: string) => {
-    const s = mySlots.get(key);
-    if (s === 'yes') return 'var(--mantine-color-indigo-6)';
-    if (s === 'if_needed') return 'var(--mantine-color-yellow-5)';
-    return null;
+  // My painting (edited here, so clearly visible), clipped to each day.
+  const myBlocks = (d: number): MyBlock[] => {
+    const day = ev.days[d];
+    return myIntervals.flatMap((i) => {
+      const a = Math.max(0, (i.start - day.start) / 60_000);
+      const b = Math.min(day.minutes, (i.end - day.start) / 60_000);
+      if (b <= a) return [];
+      return [
+        {
+          startMin: a,
+          endMin: b,
+          background:
+            i.status === 'yes' ? 'var(--mantine-color-indigo-6)' : 'var(--mantine-color-yellow-5)',
+        },
+      ];
+    });
   };
 
   return (
@@ -234,40 +236,53 @@ export function GuestView({ token }: { token: string }) {
           <Tabs.Panel value="me" pt="md">
             <Stack gap="sm">
               <Group justify="space-between" wrap="wrap" gap="sm">
-                <SegmentedControl
-                  size="xs"
-                  value={paintMode}
-                  onChange={(v) => setPaintMode(v as PaintMode)}
-                  data={[
-                    { value: 'yes', label: 'Dispo' },
-                    { value: 'if_needed', label: 'Si besoin' },
-                    { value: 'erase', label: 'Effacer' },
-                  ]}
-                />
+                <Group gap="sm">
+                  <SegmentedControl
+                    size="xs"
+                    value={paintMode}
+                    onChange={(v) => setPaintMode(v as PaintMode)}
+                    data={[
+                      { value: 'yes', label: 'Dispo' },
+                      { value: 'if_needed', label: 'Si besoin' },
+                      { value: 'erase', label: 'Effacer' },
+                    ]}
+                  />
+                  <Group gap={6}>
+                    <Text size="xs" c="dimmed">
+                      Pas :
+                    </Text>
+                    <SegmentedControl
+                      size="xs"
+                      value={String(step)}
+                      onChange={(v) => setStep(Number(v))}
+                      data={GUEST_STEPS.map((s) => ({ value: String(s), label: STEP_LABEL[s] }))}
+                    />
+                  </Group>
+                </Group>
                 <Text size="xs" c="dimmed">
-                  Cliquez-glissez pour peindre vos dispos. Réunion de {formatDuration(meeting.duration)}, créneaux de {GRAN_LABEL[meeting.granularity]}.
+                  Cliquez-glissez pour peindre vos dispos. Réunion de{' '}
+                  {formatDuration(meeting.duration)}.
                 </Text>
               </Group>
               <StripeLegend />
               <AvailabilityGrid
                 meeting={meeting}
                 tz={tz}
-                participants={participants}
-                statuses={starts}
-                myFill={myFill}
+                ev={ev}
+                ranges={ranges}
+                rowMinutes={step}
+                myBlocks={myBlocks}
                 editable
-                mySlots={mySlots}
-                onChange={setMySlots}
+                myIntervals={myIntervals}
+                onChange={setMyIntervals}
                 paintMode={paintMode}
               />
             </Stack>
           </Tabs.Panel>
           <Tabs.Panel value="results" pt="md">
             <MeetingResults
-              keys={keys}
-              statuses={starts}
+              ranges={ranges}
               participants={participants}
-              granularity={meeting.granularity}
               duration={meeting.duration}
               tz={tz}
             />

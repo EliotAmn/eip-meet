@@ -53,18 +53,21 @@ export type EditScope = 'this' | 'following' | 'all';
 
 export type SlotStatus = 'yes' | 'if_needed';
 
-export interface SlotEntry {
-  start: string; // ISO UTC slot start
+/** A painted availability interval [start, end), ISO UTC. */
+export interface AvailInterval {
+  start: string;
+  end: string;
   status: SlotStatus;
 }
+
+export const GUEST_STEPS = [15, 30, 60] as const;
 
 export interface MeetingConfig {
   id: string;
   title: string;
   dateMin: string;
   dateMax: string;
-  granularity: number;
-  duration: number; // meeting length in minutes (multiple of granularity)
+  duration: number; // meeting length in minutes (minute precision)
   dayStart: number;
   dayEnd: number;
 }
@@ -100,7 +103,8 @@ export interface GuestInfo {
   name: string;
   token: string | null; // only sent to admins
   timezone: string | null;
-  slots: SlotEntry[];
+  step: number; // painting grid step (minutes) chosen by the guest
+  intervals: AvailInterval[];
 }
 
 export type MeetingViewer =
@@ -118,7 +122,6 @@ export interface MeetingInput {
   title: string;
   dateMin: string;
   dateMax: string;
-  granularity: number;
   duration: number;
   dayStart: number;
   dayEnd: number;

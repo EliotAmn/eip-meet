@@ -7,7 +7,7 @@ import {
   Group,
   Input,
   InputLabel,
-  SegmentedControl,
+  NumberInput,
   Select,
   Stack,
   TagsInput,
@@ -65,8 +65,10 @@ export function MeetingForm({
   const [range, setRange] = useState<[Date | null, Date | null]>(
     initial ? [toDate(initial.dateMin), toDate(initial.dateMax)] : [null, null],
   );
-  const [granularity, setGranularity] = useState(String(initial?.granularity ?? 30));
-  const [duration, setDuration] = useState(String(initial?.duration ?? 60));
+  const initialDuration = initial?.duration ?? 60;
+  const [durationHours, setDurationHours] = useState(Math.floor(initialDuration / 60));
+  const [durationMins, setDurationMins] = useState(initialDuration % 60);
+  const durationMinutes = durationHours * 60 + durationMins;
   const [dayStart, setDayStart] = useState(String(initial?.dayStart ?? 8));
   const [dayEnd, setDayEnd] = useState(String(initial?.dayEnd ?? 20));
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
@@ -81,6 +83,9 @@ export function MeetingForm({
     if (!dateMin || !dateMax) {
       return notifications.show({ color: 'red', message: 'Choisissez la période de la réunion.' });
     }
+    if (durationMinutes < 5) {
+      return notifications.show({ color: 'red', message: 'La réunion doit durer au moins 5 minutes.' });
+    }
     if (Number(dayEnd) <= Number(dayStart)) {
       return notifications.show({ color: 'red', message: "L'heure de fin doit être après le début." });
     }
@@ -88,8 +93,7 @@ export function MeetingForm({
       title: title.trim(),
       dateMin,
       dateMax,
-      granularity: Number(granularity),
-      duration: Number(duration),
+      duration: durationMinutes,
       dayStart: Number(dayStart),
       dayEnd: Number(dayEnd),
     };
@@ -115,13 +119,6 @@ export function MeetingForm({
     }
   }
 
-  // Durations: multiples of the granularity, up to 8h.
-  const step = Number(granularity);
-  const durationOptions = Array.from({ length: Math.floor(480 / step) }, (_, i) => {
-    const m = (i + 1) * step;
-    return { value: String(m), label: formatDuration(m) };
-  });
-
   return (
     <Stack gap="md">
       <TextInput
@@ -141,33 +138,35 @@ export function MeetingForm({
         allowSingleDateInRange
         required
       />
-      <Select
+      <Input.Wrapper
         label="Durée de la réunion"
-        description="Un créneau n'est possible que si chacun est dispo sur toute la durée."
-        data={durationOptions}
-        value={duration}
-        onChange={(v) => v && setDuration(v)}
-        allowDeselect={false}
-        comboboxProps={{ withinPortal: true }}
-      />
-      <Input.Wrapper label="Granularité des créneaux">
-        <div>
-          <SegmentedControl
-            fullWidth
-            value={granularity}
-            onChange={(g) => {
-              setGranularity(g);
-              // Keep the duration a multiple of the granularity (round up).
-              const step = Number(g);
-              setDuration(String(Math.max(step, Math.ceil(Number(duration) / step) * step)));
-            }}
-            data={[
-              { value: '15', label: '15 min' },
-              { value: '30', label: '30 min' },
-              { value: '60', label: '1 heure' },
-            ]}
+        description={`Un créneau n'est retenu que si chacun est dispo sur toute la durée (${formatDuration(
+          Math.max(0, durationMinutes),
+        )}).`}
+      >
+        <Group grow mt={4}>
+          <NumberInput
+            aria-label="Heures"
+            suffix=" h"
+            min={0}
+            max={12}
+            clampBehavior="strict"
+            allowDecimal={false}
+            value={durationHours}
+            onChange={(v) => setDurationHours(Number(v) || 0)}
           />
-        </div>
+          <NumberInput
+            aria-label="Minutes"
+            suffix=" min"
+            min={0}
+            max={59}
+            step={5}
+            clampBehavior="strict"
+            allowDecimal={false}
+            value={durationMins}
+            onChange={(v) => setDurationMins(Number(v) || 0)}
+          />
+        </Group>
       </Input.Wrapper>
       <div>
         <InputLabel>Plage horaire affichée (heure locale de chacun)</InputLabel>

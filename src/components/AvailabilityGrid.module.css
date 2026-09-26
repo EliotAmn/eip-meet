@@ -8,9 +8,6 @@
 
 .corner,
 .dayHead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   background: var(--mantine-color-body);
   border-bottom: 1px solid var(--mantine-color-default-border);
   padding: 6px 4px;
@@ -21,93 +18,83 @@
   border-left: 1px solid var(--mantine-color-default-border);
 }
 
+.timeCol {
+  position: relative;
+  border-right: 1px solid var(--mantine-color-default-border);
+}
+
 .timeLabel {
+  position: absolute;
+  right: 6px;
   font-size: 11px;
   color: var(--mantine-color-dimmed);
-  text-align: right;
-  padding-right: 6px;
   transform: translateY(-7px);
   white-space: nowrap;
 }
 
-.timeCol {
-  border-right: 1px solid var(--mantine-color-default-border);
-}
-
-.cell {
+/* One day: rows (painting targets / lines) + absolutely positioned layers. */
+.dayCol {
   position: relative;
   border-left: 1px solid var(--mantine-color-default-border);
+}
+
+.row {
   border-top: 1px solid var(--mantine-color-gray-1);
-  cursor: pointer;
-  /* Paint on touch here without scrolling; the left time column keeps its
-     default touch-action so dragging there scrolls the page. */
+  /* Paint on touch here without scrolling; the time column scrolls the page. */
   touch-action: none;
 }
 
-/* My-status fill (full cell). */
-.fill {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* Aggregate availability, as a stripe along the left edge of the slot. */
-.stripe {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 5px;
-  pointer-events: none;
-  /* Global info: kept readable but muted, so it doesn't compete with what
-     the user paints. */
-  opacity: 0.5;
-}
-
-:global([data-mantine-color-scheme='dark']) .cell {
+:global([data-mantine-color-scheme='dark']) .row {
   border-top-color: var(--mantine-color-dark-6);
 }
 
-.cell.hourTop {
-  border-top: 1px solid var(--mantine-color-default-border);
+.row.hourTop {
+  border-top-color: var(--mantine-color-default-border);
 }
 
-.cell.readonly {
-  cursor: default;
+.editable .row {
+  cursor: pointer;
 }
 
-.cell:hover:not(.readonly) {
-  outline: 1px solid var(--mantine-color-indigo-4);
-  outline-offset: -1px;
-}
-
-/* Per-person status squares, pinned to the right edge of the cell.
-   Columns fill from the right; overflow adds columns to the left. */
-/* Everyone available: the slot works for the meeting. */
-.match {
+.layer {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+/* Result: everyone available for the whole meeting. */
+.match {
   background: var(--mantine-color-green-9);
   color: var(--mantine-color-green-3);
-  pointer-events: none;
-}
-
-/* Everyone available, some only "si besoin": possible, but less ideal. */
-.matchIfNeeded {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mantine-color-yellow-5);
-  color: var(--mantine-color-dark-7);
-  pointer-events: none;
+  border-radius: 3px;
 }
 
-/* Hover inspector floating panel. */
+/* Result: everyone available, some only "si besoin". */
+.maybe {
+  background: var(--mantine-color-yellow-5);
+  color: var(--mantine-color-dark-7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+/* Result: someone missing - muted stripe on the left. */
+.stripe {
+  right: auto;
+  width: 5px;
+  opacity: 0.5;
+}
+
+.hoverLine {
+  height: 2px;
+  background: var(--mantine-color-indigo-4);
+}
+
 .inspector {
   position: fixed;
   z-index: 400;

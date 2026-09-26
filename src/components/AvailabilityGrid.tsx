@@ -1,24 +1,31 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, ActionIcon, Text, Paper } from '@mantine/core';
 import { IconCheck, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import type { MeetingConfig, SlotStatus } from '@/lib/types';
-import type { GridParticipant, StatusMap } from '@/lib/availability';
 import {
-  addMinutes,
-  cellToUtc,
-  enumerateDates,
-  formatInstant,
-  formatTime,
-  rowCount,
-} from '@/lib/time';
+  dayBlocks,
+  type AvailabilityRange,
+  type GridParticipant,
+  type MeetingEval,
+} from '@/lib/availability';
+import { isCovered, setRange, type MsInterval } from '@/lib/intervals';
+import { formatDuration } from '@/lib/time';
 import classes from './AvailabilityGrid.module.css';
 
 const ROW_HEIGHT = 24;
+const MIN = 60_000;
 
 export type PaintMode = 'yes' | 'if_needed' | 'erase';
+
+/** A block of the viewer's own data drawn under the results. */
+export interface MyBlock {
+  startMin: number;
+  endMin: number;
+  background: string;
+}
 
 type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'busy' | 'no-answer' | 'empty';
 
@@ -37,12 +44,13 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-/** "16:00 · Shanghai" (+ "(+1j)" when the slot falls on another day for them). */
-function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): string {
-  const utc = DateTime.fromISO(utcISO, { zone: 'utc' });
-  const theirs = utc.setZone(personTz);
+const hhmm = (ms: number, tz: string) => DateTime.fromMillis(ms, { zone: tz }).toFormat('HH:mm');
+
+/** "16:00 · Shanghai" (+ "(+1j)" when it falls on another day for them). */
+function localLabel(ms: number, personTz: string, viewerTz: string): string {
+  const theirs = DateTime.fromMillis(ms, { zone: personTz });
   const dayDiff = DateTime.fromISO(theirs.toFormat('yyyy-MM-dd')).diff(
-    DateTime.fromISO(utc.setZone(viewerTz).toFormat('yyyy-MM-dd')),
+    DateTime.fromISO(DateTime.fromMillis(ms, { zone: viewerTz }).toFormat('yyyy-MM-dd')),
     'days',
   ).days;
   const dayTag = dayDiff === 0 ? '' : ` (${dayDiff > 0 ? '+' : ''}${dayDiff}j)`;
@@ -50,76 +58,53 @@ function localSlotLabel(utcISO: string, personTz: string, viewerTz: string): str
   return `${theirs.toFormat('HH:mm')}${dayTag} · ${city}`;
 }
 
-/**
- * Result of a slot for the whole group:
- * - 'yes': everyone available -> green check cell
- * - 'if_needed': everyone available, some only "si besoin" -> amber check cell
- * - otherwise a muted stripe: orange if 1 person is missing, red if more.
- */
-export function slotResult(
-  st: Map<string, SlotStatus> | undefined,
-  total: number,
-): { match: 'yes' | 'if_needed' | null; stripe: string | null } {
-  const available = st?.size ?? 0;
-  if (available === 0 || total === 0) return { match: null, stripe: null };
-  const missing = total - available;
-  if (missing === 0) {
-    const ifNeeded = [...st!.values()].some((s) => s === 'if_needed');
-    return { match: ifNeeded ? 'if_needed' : 'yes', stripe: null };
-  }
-  return {
-    match: null,
-    stripe: missing === 1 ? 'var(--mantine-color-orange-6)' : 'var(--mantine-color-red-6)',
-  };
-}
-
 interface AvailabilityGridProps {
   meeting: MeetingConfig;
   tz: string;
-  participants: GridParticipant[];
-  /** Per start time: who can attend a meeting of `meeting.duration` from there. */
-  statuses: StatusMap;
-  /** Background of a cell, reflecting the viewer's own status. */
-  myFill?: (key: string) => string | null;
+  ev: MeetingEval;
+  ranges: AvailabilityRange[];
+  /** Minutes per displayed row (and per painting cell for guests). */
+  rowMinutes: number;
+  /** The viewer's own data for a day (member: calendar; guest: painting). */
+  myBlocks?: (day: number) => MyBlock[];
   /** Guest painting. */
   editable?: boolean;
-  mySlots?: Map<string, SlotStatus>;
-  onChange?: (next: Map<string, SlotStatus>) => void;
+  myIntervals?: MsInterval[];
+  onChange?: (next: MsInterval[]) => void;
   paintMode?: PaintMode;
 }
 
 export function AvailabilityGrid({
   meeting,
   tz,
-  participants,
-  statuses,
-  myFill,
+  ev,
+  ranges,
+  rowMinutes,
+  myBlocks,
   editable = false,
-  mySlots,
+  myIntervals,
   onChange,
   paintMode = 'yes',
 }: AvailabilityGridProps) {
-  const dates = useMemo(
-    () => enumerateDates(meeting.dateMin, meeting.dateMax),
-    [meeting.dateMin, meeting.dateMax],
-  );
-  const weeks = useMemo(() => chunk(dates, 7), [dates]);
+  const weeks = useMemo(() => chunk(ev.days.map((_, i) => i), 7), [ev.days]);
   const [weekIdx, setWeekIdx] = useState(0);
   useEffect(() => {
     if (weekIdx >= weeks.length) setWeekIdx(Math.max(0, weeks.length - 1));
   }, [weeks.length, weekIdx]);
-  const rows = rowCount(meeting.dayStart, meeting.dayEnd, meeting.granularity);
   const week = weeks[weekIdx] ?? [];
 
-  // Block painting: snapshot on press, then re-apply the rectangle from the
-  // anchor to the cell under the pointer on every move (no holes when fast).
+  const windowMinutes = (meeting.dayEnd - meeting.dayStart) * 60;
+  const rows = Math.ceil(windowMinutes / rowMinutes);
+  const pxPerMin = ROW_HEIGHT / rowMinutes;
+  const total = ev.participants.length;
+
+  // ---- Guest painting: snapshot on press, re-apply the rectangle on move.
   const paint = useRef<{
     active: boolean;
     action: PaintMode;
     anchor: { day: number; row: number };
-    snapshot: Map<string, SlotStatus>;
+    snapshot: MsInterval[];
   } | null>(null);
-  const [hover, setHover] = useState<{ key: string; rect: DOMRect } | null>(null);
 
   useEffect(() => {
     const stop = () => {
@@ -133,37 +118,43 @@ export function AvailabilityGrid({
     };
   }, []);
 
+  const cellRange = useCallback(
+    (day: number, rowFrom: number, rowTo: number) => {
+      const start = ev.days[day].start;
+      return [
+        start + rowFrom * rowMinutes * MIN,
+        start + Math.min((rowTo + 1) * rowMinutes, windowMinutes) * MIN,
+      ] as const;
+    },
+    [ev.days, rowMinutes, windowMinutes],
+  );
+
   const applyRect = useCallback(
     (b: { day: number; row: number }) => {
       const p = paint.current;
       if (!p || !onChange) return;
-      const next = new Map(p.snapshot);
-      for (let d = Math.min(p.anchor.day, b.day); d <= Math.max(p.anchor.day, b.day); d += 1) {
-        const dateISO = week[d];
-        if (!dateISO) continue;
-        for (let r = Math.min(p.anchor.row, b.row); r <= Math.max(p.anchor.row, b.row); r += 1) {
-          const key = cellToUtc(dateISO, r, meeting.dayStart, meeting.granularity, tz);
-          if (p.action === 'erase') next.delete(key);
-          else next.set(key, p.action);
-        }
+      const days = week.filter(
+        (d) => d >= Math.min(p.anchor.day, b.day) && d <= Math.max(p.anchor.day, b.day),
+      );
+      let next = p.snapshot;
+      for (const d of days) {
+        const [s, e] = cellRange(d, Math.min(p.anchor.row, b.row), Math.max(p.anchor.row, b.row));
+        next = setRange(next, s, e, p.action === 'erase' ? null : p.action);
       }
       onChange(next);
     },
-    [onChange, week, meeting.dayStart, meeting.granularity, tz],
+    [onChange, week, cellRange],
   );
 
   const startPaint = (day: number, row: number) => {
-    if (!editable || !onChange || !mySlots) return;
-    // Toggle: starting on a cell that already has the selected type erases.
-    const anchorKey = cellToUtc(week[day], row, meeting.dayStart, meeting.granularity, tz);
+    if (!editable || !onChange || !myIntervals) return;
+    // Toggle: starting on a cell already painted with the selected type erases.
+    const [s, e] = cellRange(day, row, row);
     const action: PaintMode =
-      paintMode !== 'erase' && mySlots.get(anchorKey) === paintMode ? 'erase' : paintMode;
-    paint.current = {
-      active: true,
-      action,
-      anchor: { day, row },
-      snapshot: new Map(mySlots),
-    };
+      paintMode !== 'erase' && isCovered(myIntervals, s, e, paintMode as SlotStatus)
+        ? 'erase'
+        : paintMode;
+    paint.current = { active: true, action, anchor: { day, row }, snapshot: myIntervals };
     setHover(null);
     applyRect({ day, row });
   };
@@ -179,15 +170,29 @@ export function AvailabilityGrid({
     if (Number.isInteger(day) && Number.isInteger(row)) applyRect({ day, row });
   };
 
-  const statusFor = (p: GridParticipant, key: string): DisplayStatus => {
-    const s = statuses.get(key)?.get(p.id);
-    if (s) return s;
+  // ---- Hover: result for a meeting starting at the hovered minute.
+  const [hover, setHover] = useState<{ day: number; minute: number; x: number; y: number } | null>(
+    null,
+  );
+
+  const onColMove = (day: number) => (e: React.MouseEvent<HTMLDivElement>) => {
+    if (paint.current?.active) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const raw = Math.floor((e.clientY - rect.top) / pxPerMin);
+    const minute = Math.max(0, Math.min(windowMinutes - 1, Math.floor(raw / 5) * 5));
+    setHover({ day, minute, x: rect.right, y: e.clientY });
+  };
+
+  const statusFor = (p: GridParticipant, idx: number, day: number, minute: number): DisplayStatus => {
+    const v = ev.days[day].starts[idx][minute];
+    if (v === 2) return 'yes';
+    if (v === 1) return 'if_needed';
     if (!p.answered) return p.kind === 'member' ? 'empty' : 'no-answer';
     return p.kind === 'member' ? 'busy' : 'unavailable';
   };
 
-  const first = week[0];
-  const last = week[week.length - 1];
+  const first = week.length ? ev.days[week[0]].date : null;
+  const last = week.length ? ev.days[week[week.length - 1]].date : null;
   const rangeLabel =
     first && last
       ? `${DateTime.fromISO(first).setLocale('fr').toFormat('d LLL')} - ${DateTime.fromISO(last)
@@ -195,18 +200,20 @@ export function AvailabilityGrid({
           .toFormat('d LLL yyyy')}`
       : '';
 
-  const hoverStyle = useMemo(() => {
+  const inspectorStyle = useMemo(() => {
     if (!hover || typeof window === 'undefined') return null;
-    const width = 250;
-    const estHeight = 44 + participants.length * 30;
+    const width = 260;
+    const estHeight = 60 + total * 30;
     const gap = 8;
-    let left = hover.rect.right + gap;
-    if (left + width > window.innerWidth) left = hover.rect.left - width - gap;
+    let left = hover.x + gap;
+    if (left + width > window.innerWidth) left = hover.x - width - gap * 8;
     if (left < gap) left = gap;
-    let top = hover.rect.top;
+    let top = hover.y - 20;
     if (top + estHeight > window.innerHeight) top = Math.max(gap, window.innerHeight - estHeight - gap);
     return { left, top, width };
-  }, [hover, participants.length]);
+  }, [hover, total]);
+
+  const hoverStart = hover ? ev.days[hover.day].start + hover.minute * MIN : 0;
 
   return (
     <div>
@@ -238,96 +245,129 @@ export function AvailabilityGrid({
       </Group>
 
       <div
-        className={`${classes.grid} no-select`}
+        className={`${classes.grid} ${editable ? classes.editable : ''} no-select`}
         style={{ gridTemplateColumns: `64px repeat(${week.length}, minmax(44px, 1fr))` }}
         onPointerMove={onGridPointerMove}
         onMouseLeave={() => setHover(null)}
       >
         <div className={classes.corner} />
-        {week.map((dateISO) => {
-          const d = DateTime.fromISO(dateISO).setLocale('fr');
+        {week.map((d) => {
+          const date = DateTime.fromISO(ev.days[d].date).setLocale('fr');
           return (
-            <div className={classes.dayHead} key={`h-${dateISO}`}>
+            <div className={classes.dayHead} key={`h-${d}`}>
               <Text size="xs" c="dimmed" tt="capitalize">
-                {d.toFormat('ccc')}
+                {date.toFormat('ccc')}
               </Text>
               <Text size="sm" fw={600}>
-                {d.toFormat('d')}
+                {date.toFormat('d')}
               </Text>
             </div>
           );
         })}
 
-        {Array.from({ length: rows }).map((_, rowIndex) => {
-          const minutesTotal = meeting.dayStart * 60 + rowIndex * meeting.granularity;
-          const isHour = minutesTotal % 60 === 0;
-          const label = `${String(Math.floor(minutesTotal / 60)).padStart(2, '0')}:${String(
-            minutesTotal % 60,
-          ).padStart(2, '0')}`;
-          return (
-            <Fragment key={`row-${rowIndex}`}>
-              <div className={classes.timeCol} style={{ height: ROW_HEIGHT }}>
-                {isHour && <div className={classes.timeLabel}>{label}</div>}
-              </div>
-              {week.map((dateISO, dayIdx) => {
-                const key = cellToUtc(dateISO, rowIndex, meeting.dayStart, meeting.granularity, tz);
-                // Possible start times take the whole cell so they stand out.
-                const { match, stripe } = slotResult(statuses.get(key), participants.length);
-                const fill = match ? null : (myFill?.(key) ?? null);
+        <div className={classes.timeCol} style={{ height: rows * ROW_HEIGHT }}>
+          {Array.from({ length: meeting.dayEnd - meeting.dayStart }).map((_, h) => (
+            <div key={h} className={classes.timeLabel} style={{ top: h * 60 * pxPerMin }}>
+              {h === 0 ? '' : `${String(meeting.dayStart + h).padStart(2, '0')}:00`}
+            </div>
+          ))}
+        </div>
+
+        {week.map((d) => (
+          <div
+            key={`c-${d}`}
+            className={classes.dayCol}
+            style={{ height: rows * ROW_HEIGHT }}
+            onMouseMove={onColMove(d)}
+          >
+            {Array.from({ length: rows }).map((_, r) => (
+              <div
+                key={r}
+                data-cell
+                data-day={d}
+                data-row={r}
+                className={`${classes.row} ${(r * rowMinutes) % 60 === 0 ? classes.hourTop : ''}`}
+                style={{ height: ROW_HEIGHT }}
+                onPointerDown={
+                  editable
+                    ? (e) => {
+                        (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+                        startPaint(d, r);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+
+            {myBlocks?.(d).map((b, i) => (
+              <div
+                key={`my-${i}`}
+                className={classes.layer}
+                style={{
+                  top: b.startMin * pxPerMin,
+                  height: (b.endMin - b.startMin) * pxPerMin,
+                  background: b.background,
+                }}
+              />
+            ))}
+
+            {dayBlocks(ranges, d, total).map((b, i) => {
+              const style = { top: b.startMin * pxPerMin, height: (b.endMin - b.startMin) * pxPerMin };
+              if (b.kind === 'match' || b.kind === 'maybe') {
                 return (
                   <div
-                    key={`${dateISO}-${rowIndex}`}
-                    data-cell
-                    data-day={dayIdx}
-                    data-row={rowIndex}
-                    className={`${classes.cell} ${isHour ? classes.hourTop : ''} ${
-                      editable ? '' : classes.readonly
-                    }`}
-                    style={{ height: ROW_HEIGHT }}
-                    onPointerDown={
-                      editable
-                        ? (e) => {
-                            (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-                            startPaint(dayIdx, rowIndex);
-                          }
-                        : undefined
-                    }
-                    onMouseEnter={(e) => {
-                      if (paint.current?.active) return;
-                      setHover({ key, rect: e.currentTarget.getBoundingClientRect() });
-                    }}
+                    key={`r-${i}`}
+                    className={`${classes.layer} ${b.kind === 'match' ? classes.match : classes.maybe}`}
+                    style={style}
                   >
-                    {fill && <div className={classes.fill} style={{ background: fill }} />}
-                    {stripe && <div className={classes.stripe} style={{ background: stripe }} />}
-                    {match && (
-                      <div className={match === 'yes' ? classes.match : classes.matchIfNeeded}>
-                        <IconCheck size={14} stroke={3} />
-                      </div>
-                    )}
+                    {style.height >= 14 && <IconCheck size={14} stroke={3} />}
                   </div>
                 );
-              })}
-            </Fragment>
-          );
-        })}
+              }
+              return (
+                <div
+                  key={`r-${i}`}
+                  className={`${classes.layer} ${classes.stripe}`}
+                  style={{
+                    ...style,
+                    background:
+                      b.kind === 'missing1'
+                        ? 'var(--mantine-color-orange-6)'
+                        : 'var(--mantine-color-red-6)',
+                  }}
+                />
+              );
+            })}
+
+            {hover?.day === d && (
+              <div
+                className={`${classes.layer} ${classes.hoverLine}`}
+                style={{ top: hover.minute * pxPerMin - 1 }}
+              />
+            )}
+          </div>
+        ))}
       </div>
 
-      {hover && hoverStyle && participants.length > 0 && (
+      {hover && inspectorStyle && total > 0 && (
         <Paper
           withBorder
           shadow="md"
           radius="md"
           p="xs"
           className={classes.inspector}
-          style={{ left: hoverStyle.left, top: hoverStyle.top, width: hoverStyle.width }}
+          style={{ left: inspectorStyle.left, top: inspectorStyle.top, width: inspectorStyle.width }}
         >
-          <Text size="xs" fw={700} mb={6} tt="capitalize">
-            {formatInstant(hover.key, tz)} -{' '}
-            {formatTime(addMinutes(hover.key, meeting.duration), tz)}
+          <Text size="xs" fw={700} tt="capitalize">
+            {DateTime.fromMillis(hoverStart, { zone: tz }).setLocale('fr').toFormat('ccc d LLL')}{' '}
+            {hhmm(hoverStart, tz)} - {hhmm(hoverStart + meeting.duration * MIN, tz)}
           </Text>
-          {participants.map((p) => {
-            const meta = STATUS_META[statusFor(p, hover.key)];
-            const local = p.tz ? localSlotLabel(hover.key, p.tz, tz) : null;
+          <Text size="10px" c="dimmed" mb={6}>
+            Réunion de {formatDuration(meeting.duration)} commençant à cette heure
+          </Text>
+          {ev.participants.map((p, idx) => {
+            const meta = STATUS_META[statusFor(p, idx, hover.day, hover.minute)];
+            const local = p.tz ? localLabel(hoverStart, p.tz, tz) : null;
             return (
               <div key={p.id} style={{ marginBottom: 4 }}>
                 <Group justify="space-between" gap="xs" wrap="nowrap">

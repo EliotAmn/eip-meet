@@ -151,7 +151,9 @@ export async function buildMeetingDetail(
       },
       guests: {
         orderBy: { createdAt: 'asc' },
-        include: { slots: { select: { startUtc: true, status: true } } },
+        include: {
+          slots: { select: { startUtc: true, endUtc: true, status: true }, orderBy: { startUtc: 'asc' } },
+        },
       },
     },
   });
@@ -167,7 +169,6 @@ export async function buildMeetingDetail(
       title: meeting.title,
       dateMin: meeting.dateMin,
       dateMax: meeting.dateMax,
-      granularity: meeting.granularity,
       duration: meeting.duration,
       dayStart: meeting.dayStart,
       dayEnd: meeting.dayEnd,
@@ -198,8 +199,10 @@ export async function buildMeetingDetail(
       name: g.name,
       token: opts.includeTokens ? g.token : null,
       timezone: g.timezone,
-      slots: g.slots.map((s) => ({
+      step: g.step,
+      intervals: g.slots.map((s) => ({
         start: s.startUtc,
+        end: s.endUtc,
         status: (s.status === 'if_needed' ? 'if_needed' : 'yes') as SlotStatus,
       })),
     })),

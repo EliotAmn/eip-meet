@@ -11,7 +11,6 @@ export class ValidationError extends Error {}
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const GRANULARITIES = [15, 30, 60];
 const FREQS: Freq[] = ['none', 'daily', 'weekly', 'monthly'];
 
 function obj(body: unknown): Record<string, unknown> {
@@ -118,14 +117,9 @@ export function validateMeeting(body: unknown): MeetingInput {
   if (DateTime.fromISO(dateMax).diff(DateTime.fromISO(dateMin), 'days').days > 366) {
     throw new ValidationError('Période trop longue (1 an maximum).');
   }
-  const granularity = Number(b.granularity);
-  if (!GRANULARITIES.includes(granularity)) throw new ValidationError('Granularité invalide.');
-  const duration = Number(b.duration ?? granularity);
-  if (!Number.isInteger(duration) || duration < granularity || duration > 12 * 60) {
-    throw new ValidationError('Durée de réunion invalide (entre la granularité et 12h).');
-  }
-  if (duration % granularity !== 0) {
-    throw new ValidationError('La durée doit être un multiple de la granularité.');
+  const duration = Number(b.duration);
+  if (!Number.isInteger(duration) || duration < 5 || duration > 12 * 60) {
+    throw new ValidationError('Durée de réunion invalide (entre 5 min et 12h).');
   }
   const dayStart = Number(b.dayStart);
   const dayEnd = Number(b.dayEnd);
@@ -141,7 +135,7 @@ export function validateMeeting(body: unknown): MeetingInput {
   if (duration > (dayEnd - dayStart) * 60) {
     throw new ValidationError('La réunion est plus longue que la plage horaire affichée.');
   }
-  return { title, dateMin, dateMax, granularity, duration, dayStart, dayEnd };
+  return { title, dateMin, dateMax, duration, dayStart, dayEnd };
 }
 
 export function normalizeEmails(value: unknown): string[] {

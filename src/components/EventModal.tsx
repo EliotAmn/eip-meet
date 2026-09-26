@@ -14,7 +14,7 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
-import { DateInput, DatePickerInput } from '@mantine/dates';
+import { DateInput, DatePickerInput, TimeInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { IconRepeat, IconTrash } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
@@ -31,12 +31,10 @@ export type EventModalMode =
   | { kind: 'create'; draft: Partial<UnavailabilityInput> }
   | { kind: 'edit'; event: UnavailabilityDTO; date: string };
 
-const TIMES = Array.from({ length: 97 }, (_, i) => {
-  const m = i * 15;
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-});
-const START_TIMES = TIMES.slice(0, -1); // 00:00 .. 23:45
-const END_TIMES = TIMES.slice(1); // 00:15 .. 24:00
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+// An end time of 00:00 means midnight at the end of the day ("24:00").
+const endToInput = (t: string) => (t === '24:00' ? '00:00' : t);
+const inputToEnd = (t: string) => (t === '00:00' ? '24:00' : t);
 
 const WEEKDAYS = [
   { value: '1', label: 'Lun' },
@@ -202,6 +200,10 @@ export function EventModal({
 
   function onSubmit() {
     if (!form) return;
+    if (!form.allDay && (!TIME_RE.test(form.startTime) || !TIME_RE.test(endToInput(form.endTime)))) {
+      notifications.show({ color: 'red', message: 'Heure invalide (format HH:MM).' });
+      return;
+    }
     if (!form.allDay && form.endTime <= form.startTime) {
       notifications.show({ color: 'red', message: "L'heure de fin doit être après le début." });
       return;
@@ -301,23 +303,16 @@ export function EventModal({
                 valueFormat="DD/MM/YYYY"
                 disabled={recurring}
               />
-              <Select
+              <TimeInput
                 label="De"
-                data={START_TIMES}
                 value={form.startTime}
-                onChange={(v) => v && set('startTime', v)}
-                searchable
-                allowDeselect={false}
-                comboboxProps={{ withinPortal: true }}
+                onChange={(e) => set('startTime', e.currentTarget.value)}
               />
-              <Select
+              <TimeInput
                 label="À"
-                data={END_TIMES}
-                value={form.endTime}
-                onChange={(v) => v && set('endTime', v)}
-                searchable
-                allowDeselect={false}
-                comboboxProps={{ withinPortal: true }}
+                description={form.endTime === '24:00' ? 'minuit' : undefined}
+                value={endToInput(form.endTime)}
+                onChange={(e) => set('endTime', inputToEnd(e.currentTarget.value))}
               />
             </Group>
           )}
