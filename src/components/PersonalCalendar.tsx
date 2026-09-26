@@ -28,13 +28,20 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconChevronLeft, IconChevronRight, IconPlus, IconRepeat } from '@tabler/icons-react';
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconFileImport,
+  IconPlus,
+  IconRepeat,
+} from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
 import { expandOccurrences } from '@/lib/recurrence';
 import { detectTimezone } from '@/lib/time';
 import type { MeetingSummary, UnavailabilityDTO } from '@/lib/types';
 import { EventModal, type EventModalMode } from './EventModal';
+import { IcsImportModal } from './IcsImportModal';
 
 type ViewType = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth';
 
@@ -75,6 +82,7 @@ export function PersonalCalendar({
   const [title, setTitle] = useState('');
   const [view, setView] = useState<ViewType>('timeGridWeek');
   const [modal, setModal] = useState<EventModalMode | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const tz = savedTimezone ?? detectTimezone();
 
@@ -218,6 +226,14 @@ export function PersonalCalendar({
           />
           <Button
             size="xs"
+            variant="default"
+            leftSection={<IconFileImport size={14} />}
+            onClick={() => setImportOpen(true)}
+          >
+            Importer .ics
+          </Button>
+          <Button
+            size="xs"
             leftSection={<IconPlus size={14} />}
             onClick={() => setModal({ kind: 'create', draft: {} })}
           >
@@ -275,6 +291,12 @@ export function PersonalCalendar({
       </Box>
 
       <EventModal mode={modal} timezone={tz} onClose={() => setModal(null)} onSaved={load} />
+      <IcsImportModal
+        opened={importOpen}
+        timezone={tz}
+        onClose={() => setImportOpen(false)}
+        onImported={load}
+      />
     </Box>
   );
 }

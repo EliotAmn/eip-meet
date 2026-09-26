@@ -15,6 +15,20 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
   de fin optionnelle.
 - Modifier / supprimer une occurrence comme dans Apple Calendar : **cet événement /
   celui-ci et les suivants / tous**.
+- **Import .ics** (bouton « Importer .ics ») : un export de Google Agenda, Outlook ou
+  Calendrier Apple. Un **aperçu** liste ce qui sera ajouté, modifié et supprimé (chaque
+  ligne se décoche) avant de valider.
+  - **Pas de doublons** : chaque événement garde son UID. Réimporter une version à jour
+    n'applique que la différence : nouveaux, modifiés, et supprimés s'ils ont disparu du
+    fichier (même calendrier uniquement, jamais les événements passés). Une modification
+    faite dans l'app sur un événement importé est conservée tant que le fichier ne change
+    pas cet événement. Un événement déjà saisi à la main aux mêmes horaires est relié au
+    fichier au lieu d'être dupliqué.
+  - Ignorés : événements passés, marqués « libre », annulés. « Provisoire » (TENTATIVE) =
+    « Si besoin ».
+  - Récurrences simples (jour / semaine / mois, exceptions, EXDATE) gardées telles
+    quelles ; les règles plus riches (annuel, « 2e mardi »…) et les événements sur plusieurs
+    jours sont découpés en événements simples (occurrences sur les 12 prochains mois).
 - Les réunions auxquelles on participe apparaissent en bandeau (atténué) sur leur période.
 - Le fuseau horaire du compte se règle dans le menu utilisateur.
 
@@ -119,6 +133,7 @@ docker compose up -d --build
 | `src/app/g/[token]/` | Page invité (sans compte) |
 | `src/app/api/` | Routes API (calendrier, réunions, membres, invités, profil) |
 | `src/lib/recurrence.ts` | Expansion des indisponibilités récurrentes (exceptions, changements d'heure) |
+| `src/lib/ics.ts`, `src/lib/icsImport.ts` | Lecture d'un .ics (ical.js) et différence avec le calendrier |
 | `src/lib/server.ts` | Droits d'accès aux réunions, intervalles occupés des membres |
 | `src/lib/availability.ts` | Statuts par créneau et plages de créneaux possibles |
 | `src/components/` | UI (calendrier perso, grille de réunion, formulaires…) |

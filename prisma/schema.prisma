@@ -84,12 +84,18 @@ model Unavailability {
   interval  Int     @default(1)
   byWeekday String? // weekly: comma-separated ISO weekdays, 1 = Monday .. 7 = Sunday
   until     String? // YYYY-MM-DD, last date an occurrence may start (inclusive)
+  // .ics import: stable key (UID, + occurrence / day part when split), the
+  // calendar it came from, and a hash of what the file said at import time.
+  icsKey    String?
+  icsSource String?
+  icsHash   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   exceptions UnavailabilityException[]
 
+  @@unique([userId, icsKey])
   @@index([userId])
 }
 
