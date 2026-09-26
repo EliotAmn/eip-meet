@@ -83,6 +83,18 @@
 
 /* Per-person status squares, pinned to the right edge of the cell.
    Columns fill from the right; overflow adds columns to the left. */
+/* Everyone available: the slot works for the meeting. */
+.match {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mantine-color-green-9);
+  color: var(--mantine-color-green-3);
+  pointer-events: none;
+}
+
 /* Hover inspector floating panel. */
 .inspector {
   position: fixed;

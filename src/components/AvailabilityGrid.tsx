@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, ActionIcon, Text, Paper } from '@mantine/core';
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconCheck, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import type { MeetingConfig, SlotStatus } from '@/lib/types';
 import type { GridParticipant, StatusMap } from '@/lib/availability';
@@ -259,8 +259,15 @@ export function AvailabilityGrid({
               </div>
               {week.map((dateISO, dayIdx) => {
                 const key = cellToUtc(dateISO, rowIndex, meeting.dayStart, meeting.granularity, tz);
-                const fill = myFill?.(key) ?? null;
-                const stripe = stripeColor(statuses.get(key), participants.length);
+                const st = statuses.get(key);
+                // A slot where everyone is available ("Dispo") is a match: it gets
+                // the whole cell, so the possible meeting times stand out.
+                const match =
+                  participants.length > 0 &&
+                  st?.size === participants.length &&
+                  [...st.values()].every((s) => s === 'yes');
+                const fill = match ? null : (myFill?.(key) ?? null);
+                const stripe = match ? null : stripeColor(st, participants.length);
                 return (
                   <div
                     key={`${dateISO}-${rowIndex}`}
@@ -286,6 +293,11 @@ export function AvailabilityGrid({
                   >
                     {fill && <div className={classes.fill} style={{ background: fill }} />}
                     {stripe && <div className={classes.stripe} style={{ background: stripe }} />}
+                    {match && (
+                      <div className={classes.match}>
+                        <IconCheck size={14} stroke={3} />
+                      </div>
+                    )}
                   </div>
                 );
               })}

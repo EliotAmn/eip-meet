@@ -30,9 +30,11 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
   supprime la réunion.
 
 ### Lecture des résultats
-- Un **liseré** à gauche de chaque créneau résume la dispo du groupe (volontairement
-  atténué) : vert foncé = tout le monde, vert clair = tout le monde dont au moins un « si
-  besoin », orange = il manque 1 personne, rouge = il en manque plus.
+- **Créneaux où tout le monde est « Dispo »** : fond vert foncé avec une icône ✓ vert clair,
+  pour voir d'un coup d'œil où la réunion est possible.
+- Sinon, un **liseré** à gauche du créneau résume la dispo du groupe (volontairement
+  atténué) : vert clair = tout le monde dont au moins un « si besoin », orange = il manque
+  1 personne, rouge = il en manque plus.
 - **Survol d'un créneau** : statut de chaque personne et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages triées de la plus proche à la plus lointaine,
   filtrables par nombre minimum de participants.
