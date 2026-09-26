@@ -142,9 +142,13 @@ export function AvailabilityGrid({
 
   const startPaint = (day: number, row: number) => {
     if (!editable || !onChange || !mySlots) return;
+    // Toggle: starting on a cell that already has the selected type erases.
+    const anchorKey = cellToUtc(week[day], row, meeting.dayStart, meeting.granularity, tz);
+    const action: PaintMode =
+      paintMode !== 'erase' && mySlots.get(anchorKey) === paintMode ? 'erase' : paintMode;
     paint.current = {
       active: true,
-      action: paintMode,
+      action,
       anchor: { day, row },
       snapshot: new Map(mySlots),
     };

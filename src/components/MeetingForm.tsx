@@ -18,6 +18,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
+import { noAutofill } from '@/lib/noAutofill';
 import type { MeetingConfig } from '@/lib/types';
 
 const HOUR_OPTIONS = Array.from({ length: 25 }, (_, h) => ({
@@ -169,6 +170,7 @@ export function MeetingForm({
       {!editing && (
         <>
           <TagsInput
+            {...noAutofill}
             label="Membres (comptes)"
             description="Emails des personnes avec un compte. Leurs dispos viennent de leur calendrier."
             placeholder="email@exemple.com puis Entrée"
@@ -179,6 +181,7 @@ export function MeetingForm({
             splitChars={[',', ' ', ';']}
           />
           <TagsInput
+            {...noAutofill}
             label="Invités sans compte"
             description="Un lien personnel sera généré pour chacun ; ils peignent leurs dispos."
             placeholder="Nom puis Entrée"

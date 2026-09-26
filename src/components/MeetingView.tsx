@@ -38,6 +38,7 @@ import {
 } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import { apiFetch } from '@/lib/api';
+import { noAutofill } from '@/lib/noAutofill';
 import { avatarColor, initials } from '@/lib/avatar';
 import { buildAvailability, meetingSlotKeys } from '@/lib/availability';
 import type { MeetingDetail, MemberAvailability } from '@/lib/types';
@@ -334,6 +335,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           {isAdmin && (
             <Group align="flex-end" gap="sm">
               <TagsInput
+                {...noAutofill}
                 style={{ flex: 1 }}
                 label="Inviter des comptes"
                 placeholder="email@exemple.com puis Entrée"
@@ -385,6 +387,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           {isAdmin && (
             <Group align="flex-end" gap="sm">
               <TextInput
+                {...noAutofill}
                 style={{ flex: 1 }}
                 label="Ajouter un invité"
                 placeholder="Nom"
@@ -474,6 +477,7 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
       <Modal opened={!!rename} onClose={() => setRename(null)} title="Renommer l'invité" centered>
         <Stack>
           <TextInput
+            {...noAutofill}
             value={rename?.name ?? ''}
             onChange={(e) => setRename((r) => (r ? { ...r, name: e.currentTarget.value } : r))}
             onKeyDown={(e) => e.key === 'Enter' && saveRename()}
