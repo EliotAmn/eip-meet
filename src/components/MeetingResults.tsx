@@ -103,14 +103,16 @@ export function MeetingResults({
         <Stack gap="xs">
           {filtered.map((r) => {
             const everyone = r.count === total;
-            const accent = everyone ? (r.ifNeeded > 0 ? 'yellow' : 'green') : 'gray';
+            // Dark green = everyone "yes"; light green = everyone, some "si besoin".
+            const shade = r.ifNeeded > 0 ? 3 : 8;
+            const accent = everyone ? `green.${shade}` : 'gray';
             return (
               <Paper
                 key={`${r.startUtc}-${r.ids.join(',')}`}
                 withBorder
                 p="md"
                 radius="md"
-                style={everyone ? { borderColor: `var(--mantine-color-${accent}-5)` } : undefined}
+                style={everyone ? { borderColor: `var(--mantine-color-green-${shade})` } : undefined}
               >
                 <Group justify="space-between" wrap="nowrap" align="flex-start">
                   <Box>
@@ -118,7 +120,7 @@ export function MeetingResults({
                       {formatRange(r.startUtc, r.endUtc, tz)}
                     </Text>
                     {r.ifNeeded > 0 && (
-                      <Text size="xs" c="yellow.7" mt={2}>
+                      <Text size="xs" c="dimmed" mt={2}>
                         dont {r.ifNeeded} « si besoin »
                       </Text>
                     )}
@@ -139,6 +141,7 @@ export function MeetingResults({
                     size="lg"
                     variant={everyone ? 'filled' : 'light'}
                     color={everyone ? accent : 'gray'}
+                    autoContrast
                     leftSection={<IconUsers size={14} />}
                   >
                     {r.count}/{total}

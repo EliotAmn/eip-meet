@@ -57,7 +57,7 @@ export function stripeColor(st: Map<string, SlotStatus> | undefined, total: numb
   const missing = total - available;
   if (missing === 0) {
     const ifNeeded = [...st!.values()].some((s) => s === 'if_needed');
-    return ifNeeded ? 'var(--mantine-color-yellow-5)' : 'var(--mantine-color-green-6)';
+    return ifNeeded ? 'var(--mantine-color-green-3)' : 'var(--mantine-color-green-8)';
   }
   return missing === 1 ? 'var(--mantine-color-orange-6)' : 'var(--mantine-color-red-6)';
 }

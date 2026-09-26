@@ -1,10 +1,9 @@
 import { Group, Text } from '@mantine/core';
 
 const ITEMS = [
-  { color: 'var(--mantine-color-green-6)', label: 'tout le monde' },
-  { color: 'var(--mantine-color-yellow-5)', label: 'tout le monde (dont « si besoin »)' },
+  { color: 'var(--mantine-color-green-8)', label: 'tout le monde' },
+  { color: 'var(--mantine-color-green-3)', label: 'tout le monde (dont « si besoin »)' },
   { color: 'var(--mantine-color-orange-6)', label: 'il manque 1 personne' },
-  { color: 'var(--mantine-color-red-6)', label: 'il en manque plus' },
 ];
 
 /** Legend of the aggregate stripe drawn on the left of each slot. */
