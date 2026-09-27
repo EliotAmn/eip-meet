@@ -254,9 +254,36 @@ export function rangeKind(r: AvailabilityRange, total: number): BlockKind {
 
 const PRIORITY: BlockKind[] = ['missingMore', 'missing1', 'maybe', 'match'];
 
+function merge(list: [number, number][]): [number, number][] {
+  const merged: [number, number][] = [];
+  for (const [s, e] of [...list].sort((a, b) => a[0] - b[0])) {
+    const last = merged[merged.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else merged.push([s, e]);
+  }
+  return merged;
+}
+
+/** Parts of the (merged) `list` not covered by the (merged) `cut`. */
+function subtract(list: [number, number][], cut: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [s0, e] of list) {
+    let s = s0;
+    for (const [cs, ce] of cut) {
+      if (ce <= s || cs >= e) continue;
+      if (cs > s) out.push([s, cs]);
+      s = Math.max(s, ce);
+    }
+    if (s < e) out.push([s, e]);
+  }
+  return out;
+}
+
 /**
  * Blocks to draw for one day, merged per kind and ordered by priority
- * (draw in order: later ones go on top).
+ * (draw in order: later ones go on top). Windows overlap (each one runs to the
+ * end of a meeting started at its last start): where a meeting fits for
+ * everyone, the "someone missing" stripes are not drawn.
  */
 export function dayBlocks(ranges: AvailabilityRange[], day: number, total: number): ResultBlock[] {
   const byKind = new Map<BlockKind, [number, number][]>();
@@ -267,15 +294,11 @@ export function dayBlocks(ranges: AvailabilityRange[], day: number, total: numbe
     list.push([r.startMin, r.endMin]);
     byKind.set(k, list);
   }
+  const fits = merge([...(byKind.get('match') ?? []), ...(byKind.get('maybe') ?? [])]);
   const out: ResultBlock[] = [];
   for (const kind of PRIORITY) {
-    const list = (byKind.get(kind) ?? []).sort((a, b) => a[0] - b[0]);
-    const merged: [number, number][] = [];
-    for (const [s, e] of list) {
-      const lastM = merged[merged.length - 1];
-      if (lastM && s <= lastM[1]) lastM[1] = Math.max(lastM[1], e);
-      else merged.push([s, e]);
-    }
+    let merged = merge(byKind.get(kind) ?? []);
+    if (kind === 'missing1' || kind === 'missingMore') merged = subtract(merged, fits);
     for (const [s, e] of merged) out.push({ kind, startMin: s, endMin: e });
   }
   return out;

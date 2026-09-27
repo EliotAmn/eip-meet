@@ -60,7 +60,7 @@ Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la
   disponible (vous comme les autres ; un invité ne voit pas ses propres zones non peintes
   hachurées).
 - **Liseré orange** atténué à gauche, en plus : il ne manque qu'une personne pour une
-  réunion commençant là.
+  réunion commençant là. Il n'est pas affiché là où un bloc ✓ existe déjà.
 - **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de
   chaque personne sur toute la durée et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
