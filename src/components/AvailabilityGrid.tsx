@@ -47,9 +47,10 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-/** Popularity background: light blue, stronger where more people are available. */
+/** Popularity background: blue, stronger where more people are available. */
+const HEAT_MIX = [0, 12, 24, 38, 55];
 export const heatColor = (level: number) =>
-  `color-mix(in srgb, var(--mantine-color-blue-6) ${Math.round((level / HEAT_LEVELS) * 30)}%, transparent)`;
+  `color-mix(in srgb, var(--mantine-color-blue-6) ${HEAT_MIX[Math.min(level, HEAT_LEVELS)]}%, transparent)`;
 
 const hhmm = (ms: number, tz: string) => DateTime.fromMillis(ms, { zone: tz }).toFormat('HH:mm');
 
@@ -328,7 +329,10 @@ export function AvailabilityGrid({
             ))}
 
             {dayBlocks(ranges, d, total).map((b, i) => {
-              const style = { top: b.startMin * pxPerMin, height: (b.endMin - b.startMin) * pxPerMin };
+              // Inset on every side so the viewer's painting stays visible around it.
+              const h = (b.endMin - b.startMin) * pxPerMin;
+              const inset = h > 12 ? 3 : 0;
+              const style = { top: b.startMin * pxPerMin + inset, height: h - 2 * inset };
               return (
                 <div
                   key={`r-${i}`}

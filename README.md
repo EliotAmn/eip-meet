@@ -54,11 +54,11 @@ Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la
   « Dispo » (ex. 8h15 - 10h15).
 - **✓ sur fond jaune** : tout le monde est disponible, dont au moins un « si besoin ».
 - **Fond bleu = popularité** : plus il y a de monde disponible à ce moment, plus le bleu est
-  marqué (« si besoin » compte pour moitié, quelqu'un qui n'a pas répondu compte absent).
-  Il reste léger pour ne pas gêner la lecture des créneaux.
+  marqué (4 niveaux bien distincts ; « si besoin » compte pour moitié, quelqu'un qui n'a
+  pas répondu compte absent).
 - **Peinture de l'invité** : teinte légère avec un contour (vert = dispo, jaune = si
   besoin), sur toute la largeur du jour ; elle n'entre pas dans le fond bleu qu'il voit.
-  Les blocs ✓ sont en retrait pour laisser voir sa peinture autour.
+  Les blocs ✓ sont en retrait (sur tous les côtés) pour laisser voir sa peinture autour.
 - **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de
   chaque personne sur toute la durée et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
