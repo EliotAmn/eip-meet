@@ -28,8 +28,8 @@ export interface DayEval {
   minutes: number; // window length
   /** Per participant: result for a meeting starting at minute s (0 / 1 / 2). */
   starts: Uint8Array[];
-  /** Minute ranges [from, to) where at least one person who answered is not available. */
-  blocked: [number, number][];
+  /** Popularity runs [from, to, level 1..HEAT_LEVELS]: how many people are available. */
+  heat: [number, number, number][];
 }
 
 export interface MeetingEval {
@@ -84,16 +84,28 @@ function startResults(avail: Uint8Array, duration: number): Uint8Array {
   return out;
 }
 
-/** Minute ranges where at least one of these people is not available. */
-function blockedRanges(avails: Uint8Array[], minutes: number): [number, number][] {
-  const out: [number, number][] = [];
-  let from = -1;
+export const HEAT_LEVELS = 4;
+
+/**
+ * Popularity of each minute: share of these people available ("si besoin"
+ * counts half), quantized to 0..HEAT_LEVELS and merged into runs (level 0 omitted).
+ */
+function heatRuns(avails: Uint8Array[], minutes: number): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  if (avails.length === 0) return out;
+  let from = 0;
+  let prev = -1;
   for (let m = 0; m <= minutes; m += 1) {
-    const blocked = m < minutes && avails.some((a) => a[m] === 0);
-    if (blocked && from < 0) from = m;
-    if (!blocked && from >= 0) {
-      out.push([from, m]);
-      from = -1;
+    let level = -1;
+    if (m < minutes) {
+      let sum = 0;
+      for (const a of avails) sum += a[m] === 2 ? 2 : a[m] === 1 ? 1 : 0;
+      level = Math.round((sum / (2 * avails.length)) * HEAT_LEVELS);
+    }
+    if (level !== prev) {
+      if (prev > 0) out.push([from, m, prev]);
+      from = m;
+      prev = level;
     }
   }
   return out;
@@ -112,9 +124,9 @@ export function evaluateMeeting(
   const windows = dayWindows(meeting, tz);
   const participants: GridParticipant[] = [];
   const perDayAvail: Uint8Array[][] = windows.map(() => []);
-  // Who counts for the "someone is not available" hatch: people who answered,
-  // except the viewing guest (their own painting is drawn as is).
-  const countsAsBlocking: boolean[] = [];
+  // Who counts for the popularity background: everyone (no answer = not
+  // available) except the viewing guest, whose own painting is drawn as is.
+  const inHeat: boolean[] = [];
 
   for (const m of detail.members) {
     participants.push({
@@ -126,7 +138,7 @@ export function evaluateMeeting(
       isMe: viewer.kind === 'member' && viewer.memberId === m.id,
       answered: m.calendarFilled,
     });
-    countsAsBlocking.push(m.calendarFilled);
+    inHeat.push(true);
     const busy = toMs(m.busy);
     const soft = toMs(m.soft);
     windows.forEach((w, d) => {
@@ -152,7 +164,7 @@ export function evaluateMeeting(
       isMe,
       answered: intervals.length > 0,
     });
-    countsAsBlocking.push(!isMe && intervals.length > 0);
+    inHeat.push(!isMe);
     windows.forEach((w, d) => {
       const arr = new Uint8Array(w.minutes);
       for (const i of intervals) markInside(arr, w.start, i.start, i.end, i.status === 'yes' ? 2 : 1);
@@ -168,7 +180,7 @@ export function evaluateMeeting(
       start: w.start,
       minutes: w.minutes,
       starts: perDayAvail[d].map((a) => startResults(a, meeting.duration)),
-      blocked: blockedRanges(perDayAvail[d].filter((_, p) => countsAsBlocking[p]), w.minutes),
+      heat: heatRuns(perDayAvail[d].filter((_, p) => inHeat[p]), w.minutes),
     })),
   };
 }
@@ -238,21 +250,13 @@ export function computeRanges(ev: MeetingEval): AvailabilityRange[] {
   return ranges;
 }
 
-export type BlockKind = 'match' | 'maybe' | 'missing1' | 'missingMore';
+export type BlockKind = 'match' | 'maybe';
 
 export interface ResultBlock {
   kind: BlockKind;
   startMin: number;
   endMin: number;
 }
-
-/** Group result of a range. */
-export function rangeKind(r: AvailabilityRange, total: number): BlockKind {
-  if (r.count === total) return r.ifNeeded > 0 ? 'maybe' : 'match';
-  return r.count === total - 1 ? 'missing1' : 'missingMore';
-}
-
-const PRIORITY: BlockKind[] = ['missingMore', 'missing1', 'maybe', 'match'];
 
 function merge(list: [number, number][]): [number, number][] {
   const merged: [number, number][] = [];
@@ -264,42 +268,18 @@ function merge(list: [number, number][]): [number, number][] {
   return merged;
 }
 
-/** Parts of the (merged) `list` not covered by the (merged) `cut`. */
-function subtract(list: [number, number][], cut: [number, number][]): [number, number][] {
-  const out: [number, number][] = [];
-  for (const [s0, e] of list) {
-    let s = s0;
-    for (const [cs, ce] of cut) {
-      if (ce <= s || cs >= e) continue;
-      if (cs > s) out.push([s, cs]);
-      s = Math.max(s, ce);
-    }
-    if (s < e) out.push([s, e]);
-  }
-  return out;
-}
-
 /**
- * Blocks to draw for one day, merged per kind and ordered by priority
- * (draw in order: later ones go on top). Windows overlap (each one runs to the
- * end of a meeting started at its last start): where a meeting fits for
- * everyone, the "someone missing" stripes are not drawn.
+ * Where the meeting fits for everyone on one day, merged per kind ("maybe"
+ * first, "match" drawn on top). Partial results are shown by the popularity
+ * background, not by blocks.
  */
 export function dayBlocks(ranges: AvailabilityRange[], day: number, total: number): ResultBlock[] {
-  const byKind = new Map<BlockKind, [number, number][]>();
+  const byKind: Record<BlockKind, [number, number][]> = { maybe: [], match: [] };
   for (const r of ranges) {
-    if (r.day !== day) continue;
-    const k = rangeKind(r, total);
-    const list = byKind.get(k) ?? [];
-    list.push([r.startMin, r.endMin]);
-    byKind.set(k, list);
+    if (r.day !== day || r.count !== total) continue;
+    byKind[r.ifNeeded > 0 ? 'maybe' : 'match'].push([r.startMin, r.endMin]);
   }
-  const fits = merge([...(byKind.get('match') ?? []), ...(byKind.get('maybe') ?? [])]);
-  const out: ResultBlock[] = [];
-  for (const kind of PRIORITY) {
-    let merged = merge(byKind.get(kind) ?? []);
-    if (kind === 'missing1' || kind === 'missingMore') merged = subtract(merged, fits);
-    for (const [s, e] of merged) out.push({ kind, startMin: s, endMin: e });
-  }
-  return out;
+  return (['maybe', 'match'] as BlockKind[]).flatMap((kind) =>
+    merge(byKind[kind]).map(([s, e]) => ({ kind, startMin: s, endMin: e })),
+  );
 }

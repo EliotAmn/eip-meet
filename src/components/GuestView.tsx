@@ -51,6 +51,12 @@ const sameIntervals = (a: MsInterval[], b: MsInterval[]) =>
   a.length === b.length &&
   a.every((x, i) => x.start === b[i].start && x.end === b[i].end && x.status === b[i].status);
 
+// The guest's own painting.
+const PAINT = {
+  yes: { background: 'var(--mantine-color-green-light)', outline: 'var(--mantine-color-green-5)' },
+  if_needed: { background: 'var(--mantine-color-yellow-light)', outline: 'var(--mantine-color-yellow-5)' },
+};
+
 export function GuestView({ token }: { token: string }) {
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,9 +153,9 @@ export function GuestView({ token }: { token: string }) {
         {
           startMin: a,
           endMin: b,
-          // My painting is dim; what matches for everyone is drawn vivid on top.
-          background:
-            i.status === 'yes' ? 'var(--mantine-color-green-light)' : 'var(--mantine-color-yellow-light)',
+          // My painting: light tint + outline; what matches for everyone is
+          // drawn solid with a check on top.
+          ...PAINT[i.status],
         },
       ];
     });
@@ -269,18 +275,20 @@ export function GuestView({ token }: { token: string }) {
                 <Text size="xs" c="dimmed">
                   Vos dispos :
                 </Text>
-                {[
-                  { color: 'var(--mantine-color-green-light)', label: 'dispo' },
-                  { color: 'var(--mantine-color-yellow-light)', label: 'si besoin' },
-                ].map((s) => (
-                  <Group key={s.label} gap={6}>
-                    <span style={{ width: 18, height: 14, borderRadius: 3, background: s.color }} />
-                    <Text size="xs">{s.label}</Text>
+                {(['yes', 'if_needed'] as const).map((st) => (
+                  <Group key={st} gap={6}>
+                    <span
+                      style={{
+                        width: 18,
+                        height: 14,
+                        borderRadius: 3,
+                        background: PAINT[st].background,
+                        boxShadow: `inset 0 0 0 1px ${PAINT[st].outline}`,
+                      }}
+                    />
+                    <Text size="xs">{st === 'yes' ? 'dispo' : 'si besoin'}</Text>
                   </Group>
                 ))}
-                <Text size="xs" c="dimmed">
-                  (atténué = ce que vous peignez, vif = ce qui convient à tout le monde)
-                </Text>
               </Group>
               <StripeLegend />
               <AvailabilityGrid

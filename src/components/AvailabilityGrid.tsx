@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import type { MeetingConfig, SlotStatus } from '@/lib/types';
 import {
   dayBlocks,
+  HEAT_LEVELS,
   type AvailabilityRange,
   type GridParticipant,
   type MeetingEval,
@@ -25,6 +26,8 @@ export interface MyBlock {
   startMin: number;
   endMin: number;
   background: string;
+  /** Thin inner outline (the viewer's painting). */
+  outline?: string;
 }
 
 type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'busy' | 'no-answer' | 'empty';
@@ -43,6 +46,10 @@ function chunk<T>(arr: T[], size: number): T[][] {
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
+
+/** Popularity background: light blue, stronger where more people are available. */
+export const heatColor = (level: number) =>
+  `color-mix(in srgb, var(--mantine-color-blue-6) ${Math.round((level / HEAT_LEVELS) * 30)}%, transparent)`;
 
 const hhmm = (ms: number, tz: string) => DateTime.fromMillis(ms, { zone: tz }).toFormat('HH:mm');
 
@@ -299,6 +306,14 @@ export function AvailabilityGrid({
               />
             ))}
 
+            {ev.days[d].heat.map(([s, e, level], i) => (
+              <div
+                key={`h-${i}`}
+                className={classes.layer}
+                style={{ top: s * pxPerMin, height: (e - s) * pxPerMin, background: heatColor(level) }}
+              />
+            ))}
+
             {myBlocks?.(d).map((b, i) => (
               <div
                 key={`my-${i}`}
@@ -307,34 +322,22 @@ export function AvailabilityGrid({
                   top: b.startMin * pxPerMin,
                   height: (b.endMin - b.startMin) * pxPerMin,
                   background: b.background,
+                  boxShadow: b.outline ? `inset 0 0 0 1px ${b.outline}` : undefined,
                 }}
-              />
-            ))}
-
-            {ev.days[d].blocked.map(([s, e], i) => (
-              <div
-                key={`x-${i}`}
-                className={`${classes.layer} ${classes.blocked}`}
-                style={{ top: s * pxPerMin, height: (e - s) * pxPerMin }}
               />
             ))}
 
             {dayBlocks(ranges, d, total).map((b, i) => {
               const style = { top: b.startMin * pxPerMin, height: (b.endMin - b.startMin) * pxPerMin };
-              if (b.kind === 'match' || b.kind === 'maybe') {
-                return (
-                  <div
-                    key={`r-${i}`}
-                    className={`${classes.layer} ${b.kind === 'match' ? classes.match : classes.maybe}`}
-                    style={style}
-                  >
-                    {style.height >= 14 && <IconCheck size={14} stroke={3} />}
-                  </div>
-                );
-              }
-              // Several people missing: the red hatch already says it.
-              if (b.kind !== 'missing1') return null;
-              return <div key={`r-${i}`} className={`${classes.layer} ${classes.stripe}`} style={style} />;
+              return (
+                <div
+                  key={`r-${i}`}
+                  className={`${classes.layer} ${b.kind === 'match' ? classes.match : classes.maybe}`}
+                  style={style}
+                >
+                  {style.height >= 14 && <IconCheck size={14} stroke={3} />}
+                </div>
+              );
             })}
 
             {hover?.day === d && (

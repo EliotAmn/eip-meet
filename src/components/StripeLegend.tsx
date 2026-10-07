@@ -1,5 +1,6 @@
 import { Group, Text } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
+import { heatColor } from './AvailabilityGrid';
 
 function CheckSwatch({ bg, fg }: { bg: string; fg: string }) {
   return (
@@ -33,28 +34,12 @@ export function StripeLegend() {
         <Text size="xs">tout le monde, dont « si besoin »</Text>
       </Group>
       <Group gap={6}>
-        <span
-          style={{
-            width: 18,
-            height: 14,
-            borderRadius: 3,
-            background:
-              'repeating-linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-red-7) 30%, transparent) 0 4px, transparent 4px 8px)',
-          }}
-        />
-        <Text size="xs">quelqu'un n'est pas dispo</Text>
-      </Group>
-      <Group gap={6}>
-        <span
-          style={{
-            width: 4,
-            height: 14,
-            borderRadius: 2,
-            background: 'var(--mantine-color-orange-6)',
-            opacity: 0.5,
-          }}
-        />
-        <Text size="xs">il manque 1 personne</Text>
+        <Group gap={2}>
+          {[1, 2, 3, 4].map((l) => (
+            <span key={l} style={{ width: 10, height: 14, borderRadius: 2, background: heatColor(l) }} />
+          ))}
+        </Group>
+        <Text size="xs">fond : de peu à beaucoup de monde dispo</Text>
       </Group>
       <Text size="xs" c="dimmed">
         · Survolez un créneau pour le détail.
