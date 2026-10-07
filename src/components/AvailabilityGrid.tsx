@@ -41,10 +41,22 @@ const STATUS_META: Record<DisplayStatus, { label: string; color: string }> = {
   empty: { label: 'Calendrier vide', color: 'var(--mantine-color-gray-5)' },
 };
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
+/** Monday-to-Sunday weeks covering the period; days outside it have no index. */
+function calendarWeeks(dates: string[]): { date: string; d: number | null }[][] {
+  if (dates.length === 0) return [];
+  const index = new Map(dates.map((date, i) => [date, i]));
+  const end = DateTime.fromISO(dates[dates.length - 1]).endOf('week');
+  const weeks: { date: string; d: number | null }[][] = [];
+  for (
+    let day = DateTime.fromISO(dates[0]).startOf('week');
+    day <= end;
+    day = day.plus({ days: 1 })
+  ) {
+    if (day.weekday === 1) weeks.push([]);
+    const date = day.toISODate()!;
+    weeks[weeks.length - 1].push({ date, d: index.get(date) ?? null });
+  }
+  return weeks;
 }
 
 /** Popularity background: blue, stronger where more people are available. */
@@ -94,12 +106,14 @@ export function AvailabilityGrid({
   onChange,
   paintMode = 'yes',
 }: AvailabilityGridProps) {
-  const weeks = useMemo(() => chunk(ev.days.map((_, i) => i), 7), [ev.days]);
+  const weeks = useMemo(() => calendarWeeks(ev.days.map((day) => day.date)), [ev.days]);
   const [weekIdx, setWeekIdx] = useState(0);
   useEffect(() => {
     if (weekIdx >= weeks.length) setWeekIdx(Math.max(0, weeks.length - 1));
   }, [weeks.length, weekIdx]);
-  const week = weeks[weekIdx] ?? [];
+  const cols = weeks[weekIdx] ?? [];
+  // Days of this week inside the period.
+  const week = useMemo(() => cols.flatMap((c) => (c.d === null ? [] : [c.d])), [cols]);
 
   const windowMinutes = (meeting.dayEnd - meeting.dayStart) * 60;
   const rows = Math.ceil(windowMinutes / rowMinutes);
@@ -191,7 +205,12 @@ export function AvailabilityGrid({
     setHover({ day, minute, x: rect.right, y: e.clientY });
   };
 
-  const statusFor = (p: GridParticipant, idx: number, day: number, minute: number): DisplayStatus => {
+  const statusFor = (
+    p: GridParticipant,
+    idx: number,
+    day: number,
+    minute: number,
+  ): DisplayStatus => {
     const v = ev.days[day].starts[idx][minute];
     if (v === 2) return 'yes';
     if (v === 1) return 'if_needed';
@@ -199,8 +218,8 @@ export function AvailabilityGrid({
     return p.kind === 'member' ? 'busy' : 'unavailable';
   };
 
-  const first = week.length ? ev.days[week[0]].date : null;
-  const last = week.length ? ev.days[week[week.length - 1]].date : null;
+  const first = cols.length ? cols[0].date : null;
+  const last = cols.length ? cols[cols.length - 1].date : null;
   const rangeLabel =
     first && last
       ? `${DateTime.fromISO(first).setLocale('fr').toFormat('d LLL')} - ${DateTime.fromISO(last)
@@ -217,7 +236,8 @@ export function AvailabilityGrid({
     if (left + width > window.innerWidth) left = hover.x - width - gap * 8;
     if (left < gap) left = gap;
     let top = hover.y - 20;
-    if (top + estHeight > window.innerHeight) top = Math.max(gap, window.innerHeight - estHeight - gap);
+    if (top + estHeight > window.innerHeight)
+      top = Math.max(gap, window.innerHeight - estHeight - gap);
     return { left, top, width };
   }, [hover, total]);
 
@@ -254,15 +274,18 @@ export function AvailabilityGrid({
 
       <div
         className={`${classes.grid} ${editable ? classes.editable : ''} no-select`}
-        style={{ gridTemplateColumns: `64px repeat(${week.length}, minmax(44px, 1fr))` }}
+        style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(44px, 1fr))` }}
         onPointerMove={onGridPointerMove}
         onMouseLeave={() => setHover(null)}
       >
         <div className={classes.corner} />
-        {week.map((d) => {
-          const date = DateTime.fromISO(ev.days[d].date).setLocale('fr');
+        {cols.map(({ d, date: iso }) => {
+          const date = DateTime.fromISO(iso).setLocale('fr');
           return (
-            <div className={classes.dayHead} key={`h-${d}`}>
+            <div
+              className={`${classes.dayHead} ${d === null ? classes.outside : ''}`}
+              key={`h-${iso}`}
+            >
               <Text size="xs" c="dimmed" tt="capitalize">
                 {date.toFormat('ccc')}
               </Text>
@@ -281,77 +304,90 @@ export function AvailabilityGrid({
           ))}
         </div>
 
-        {week.map((d) => (
-          <div
-            key={`c-${d}`}
-            className={classes.dayCol}
-            style={{ height: rows * ROW_HEIGHT }}
-            onMouseMove={onColMove(d)}
-          >
-            {Array.from({ length: rows }).map((_, r) => (
-              <div
-                key={r}
-                data-cell
-                data-day={d}
-                data-row={r}
-                className={`${classes.row} ${(r * rowMinutes) % 60 === 0 ? classes.hourTop : ''}`}
-                style={{ height: ROW_HEIGHT }}
-                onPointerDown={
-                  editable
-                    ? (e) => {
-                        (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-                        startPaint(d, r);
-                      }
-                    : undefined
-                }
-              />
-            ))}
-
-            {ev.days[d].heat.map(([s, e, level], i) => (
-              <div
-                key={`h-${i}`}
-                className={classes.layer}
-                style={{ top: s * pxPerMin, height: (e - s) * pxPerMin, background: heatColor(level) }}
-              />
-            ))}
-
-            {myBlocks?.(d).map((b, i) => (
-              <div
-                key={`my-${i}`}
-                className={classes.layer}
-                style={{
-                  top: b.startMin * pxPerMin,
-                  height: (b.endMin - b.startMin) * pxPerMin,
-                  background: b.background,
-                  boxShadow: b.outline ? `inset 0 0 0 1px ${b.outline}` : undefined,
-                }}
-              />
-            ))}
-
-            {dayBlocks(ranges, d, total).map((b, i) => {
-              // Inset on every side so the viewer's painting stays visible around it.
-              const h = (b.endMin - b.startMin) * pxPerMin;
-              const inset = h > 12 ? 3 : 0;
-              const style = { top: b.startMin * pxPerMin + inset, height: h - 2 * inset };
-              return (
+        {cols.map(({ d, date }) =>
+          d === null ? (
+            <div
+              key={`o-${date}`}
+              className={`${classes.dayCol} ${classes.outside}`}
+              style={{ height: rows * ROW_HEIGHT }}
+              title="Hors de la période"
+            />
+          ) : (
+            <div
+              key={`c-${d}`}
+              className={classes.dayCol}
+              style={{ height: rows * ROW_HEIGHT }}
+              onMouseMove={onColMove(d)}
+            >
+              {Array.from({ length: rows }).map((_, r) => (
                 <div
-                  key={`r-${i}`}
-                  className={`${classes.layer} ${b.kind === 'match' ? classes.match : classes.maybe}`}
-                  style={style}
-                >
-                  {style.height >= 14 && <IconCheck size={14} stroke={3} />}
-                </div>
-              );
-            })}
+                  key={r}
+                  data-cell
+                  data-day={d}
+                  data-row={r}
+                  className={`${classes.row} ${(r * rowMinutes) % 60 === 0 ? classes.hourTop : ''}`}
+                  style={{ height: ROW_HEIGHT }}
+                  onPointerDown={
+                    editable
+                      ? (e) => {
+                          (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+                          startPaint(d, r);
+                        }
+                      : undefined
+                  }
+                />
+              ))}
 
-            {hover?.day === d && (
-              <div
-                className={`${classes.layer} ${classes.hoverLine}`}
-                style={{ top: hover.minute * pxPerMin - 1 }}
-              />
-            )}
-          </div>
-        ))}
+              {ev.days[d].heat.map(([s, e, level], i) => (
+                <div
+                  key={`h-${i}`}
+                  className={classes.layer}
+                  style={{
+                    top: s * pxPerMin,
+                    height: (e - s) * pxPerMin,
+                    background: heatColor(level),
+                  }}
+                />
+              ))}
+
+              {myBlocks?.(d).map((b, i) => (
+                <div
+                  key={`my-${i}`}
+                  className={classes.layer}
+                  style={{
+                    top: b.startMin * pxPerMin,
+                    height: (b.endMin - b.startMin) * pxPerMin,
+                    background: b.background,
+                    boxShadow: b.outline ? `inset 0 0 0 1px ${b.outline}` : undefined,
+                  }}
+                />
+              ))}
+
+              {dayBlocks(ranges, d, total).map((b, i) => {
+                // Inset on every side so the viewer's painting stays visible around it.
+                const h = (b.endMin - b.startMin) * pxPerMin;
+                const inset = h > 12 ? 3 : 0;
+                const style = { top: b.startMin * pxPerMin + inset, height: h - 2 * inset };
+                return (
+                  <div
+                    key={`r-${i}`}
+                    className={`${classes.layer} ${b.kind === 'match' ? classes.match : classes.maybe}`}
+                    style={style}
+                  >
+                    {style.height >= 14 && <IconCheck size={14} stroke={3} />}
+                  </div>
+                );
+              })}
+
+              {hover?.day === d && (
+                <div
+                  className={`${classes.layer} ${classes.hoverLine}`}
+                  style={{ top: hover.minute * pxPerMin - 1 }}
+                />
+              )}
+            </div>
+          ),
+        )}
       </div>
 
       {hover && inspectorStyle && total > 0 && (
@@ -361,7 +397,11 @@ export function AvailabilityGrid({
           radius="md"
           p="xs"
           className={classes.inspector}
-          style={{ left: inspectorStyle.left, top: inspectorStyle.top, width: inspectorStyle.width }}
+          style={{
+            left: inspectorStyle.left,
+            top: inspectorStyle.top,
+            width: inspectorStyle.width,
+          }}
         >
           <Text size="xs" fw={700} tt="capitalize">
             {DateTime.fromMillis(hoverStart, { zone: tz }).setLocale('fr').toFormat('ccc d LLL')}{' '}

@@ -91,6 +91,15 @@
   border-radius: 3px;
 }
 
+/* Day of the Monday-Sunday week outside the meeting period. */
+.outside {
+  background: var(--mantine-color-default-hover);
+}
+
+.dayHead.outside {
+  opacity: 0.45;
+}
+
 .hoverLine {
   height: 2px;
   background: var(--mantine-color-indigo-4);
