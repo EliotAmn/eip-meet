@@ -268,10 +268,26 @@ function merge(list: [number, number][]): [number, number][] {
   return merged;
 }
 
+/** Parts of the (merged) `list` not covered by the (merged) `cut`. */
+function subtract(list: [number, number][], cut: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [s0, e] of list) {
+    let s = s0;
+    for (const [cs, ce] of cut) {
+      if (ce <= s || cs >= e) continue;
+      if (cs > s) out.push([s, cs]);
+      s = Math.max(s, ce);
+    }
+    if (s < e) out.push([s, e]);
+  }
+  return out;
+}
+
 /**
- * Where the meeting fits for everyone on one day, merged per kind ("maybe"
- * first, "match" drawn on top). Partial results are shown by the popularity
- * background, not by blocks.
+ * Where the meeting fits for everyone on one day, merged per kind. Windows
+ * overlap (each runs to the end of a meeting started at its last start):
+ * "maybe" is cut where "match" is, so every block shows its own check.
+ * Partial results are shown by the popularity background, not by blocks.
  */
 export function dayBlocks(ranges: AvailabilityRange[], day: number, total: number): ResultBlock[] {
   const byKind: Record<BlockKind, [number, number][]> = { maybe: [], match: [] };
@@ -279,7 +295,10 @@ export function dayBlocks(ranges: AvailabilityRange[], day: number, total: numbe
     if (r.day !== day || r.count !== total) continue;
     byKind[r.ifNeeded > 0 ? 'maybe' : 'match'].push([r.startMin, r.endMin]);
   }
-  return (['maybe', 'match'] as BlockKind[]).flatMap((kind) =>
-    merge(byKind[kind]).map(([s, e]) => ({ kind, startMin: s, endMin: e })),
-  );
+  const match = merge(byKind.match);
+  const maybe = subtract(merge(byKind.maybe), match);
+  return [
+    ...maybe.map(([s, e]) => ({ kind: 'maybe' as const, startMin: s, endMin: e })),
+    ...match.map(([s, e]) => ({ kind: 'match' as const, startMin: s, endMin: e })),
+  ];
 }
