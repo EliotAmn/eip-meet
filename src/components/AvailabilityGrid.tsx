@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, ActionIcon, Text, Paper } from '@mantine/core';
-import { IconCheck, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconCalendar, IconCheck, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { DateTime } from 'luxon';
 import type { MeetingConfig, SlotStatus } from '@/lib/types';
 import {
@@ -30,7 +30,23 @@ export interface MyBlock {
   accent?: string;
   /** Small reminder at the top ("Dispo", "Si besoin"). */
   label?: string;
+  /** Comes from the personal calendar (not editable here). */
+  fromCalendar?: boolean;
 }
+
+/** The viewer's own availability: light tint + solid bar on the left. */
+export const OWN_STYLE = {
+  yes: {
+    background: 'var(--mantine-color-green-light)',
+    accent: 'var(--mantine-color-green-6)',
+    label: 'Dispo',
+  },
+  if_needed: {
+    background: 'var(--mantine-color-yellow-light)',
+    accent: 'var(--mantine-color-yellow-5)',
+    label: 'Si besoin',
+  },
+} as const;
 
 type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'busy' | 'no-answer' | 'empty';
 
@@ -275,7 +291,7 @@ export function AvailabilityGrid({
       </Group>
 
       <div
-        className={`${classes.grid} ${editable ? classes.editable : ''} no-select`}
+        className={`${classes.grid} ${editable ? classes.editable : ''} ${myBlocks ? classes.withOwn : ''} no-select`}
         style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(44px, 1fr))` }}
         onPointerMove={onGridPointerMove}
         onMouseLeave={() => setHover(null)}
@@ -365,6 +381,7 @@ export function AvailabilityGrid({
                 >
                   {b.label && (b.endMin - b.startMin) * pxPerMin >= 16 && (
                     <span className={classes.paintLabel} style={{ color: b.accent }}>
+                      {b.fromCalendar && <IconCalendar size={10} stroke={2.5} />}
                       {b.label}
                     </span>
                   )}

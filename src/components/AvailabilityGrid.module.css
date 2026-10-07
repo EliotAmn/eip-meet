@@ -71,9 +71,9 @@
   right: 4px;
 }
 
-/* Guest page: clear the 6px bar marking one's own painting. */
-.editable .match,
-.editable .maybe {
+/* Clear the 6px bar marking one's own availability. */
+.withOwn .match,
+.withOwn .maybe {
   left: 10px;
 }
 
@@ -108,7 +108,9 @@
 
 /* Reminder on one's own painting (hidden under a result block). */
 .paintLabel {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 3px;
   padding: 1px 4px;
   font-size: 10px;
   font-weight: 600;

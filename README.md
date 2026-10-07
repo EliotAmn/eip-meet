@@ -66,8 +66,10 @@ Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la
   chaque personne sur toute la durée et l'heure que c'est chez elle.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
   de la plus proche à la plus lointaine, filtrables par nombre minimum de participants.
-- Vos propres « si besoin » y restent discrets (teinte jaune légère) : ils se gèrent dans
-  votre calendrier. Un invité voit sa propre peinture, qu'il modifie sur sa page.
+- **Membre** : ses dispos, calculées depuis son calendrier, s'affichent comme la peinture
+  d'un invité (barre verte « Dispo », jaune « Si besoin », rien quand il est occupé), avec
+  une icône calendrier : elles se modifient dans « Mon calendrier », pas sur la réunion.
+  Un invité voit sa propre peinture, qu'il modifie sur sa page.
 
 ### Fuseaux horaires
 Tout est stocké en instants absolus (UTC) et réaffiché dans le fuseau de celui qui regarde.

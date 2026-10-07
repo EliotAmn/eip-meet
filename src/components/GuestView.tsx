@@ -39,9 +39,9 @@ import { detectTimezone, formatDuration, offsetLabel } from '@/lib/time';
 import { supportedTimezones } from '@/lib/timezones';
 import { GUEST_STEPS, type MeetingDetail } from '@/lib/types';
 import { fromIso, toIso, type MsInterval } from '@/lib/intervals';
-import { AvailabilityGrid, type MyBlock, type PaintMode } from './AvailabilityGrid';
+import { AvailabilityGrid, OWN_STYLE, type MyBlock, type PaintMode } from './AvailabilityGrid';
 import { MeetingResults } from './MeetingResults';
-import { StripeLegend } from './StripeLegend';
+import { OwnLegend, StripeLegend } from './StripeLegend';
 import { periodLabel } from './MeetingView';
 import { APP_NAME } from '@/lib/brand';
 
@@ -50,12 +50,6 @@ const STEP_LABEL: Record<number, string> = { 15: '15 min', 30: '30 min', 60: '1h
 const sameIntervals = (a: MsInterval[], b: MsInterval[]) =>
   a.length === b.length &&
   a.every((x, i) => x.start === b[i].start && x.end === b[i].end && x.status === b[i].status);
-
-// The guest's own painting.
-const PAINT = {
-  yes: { background: 'var(--mantine-color-green-light)', accent: 'var(--mantine-color-green-6)' },
-  if_needed: { background: 'var(--mantine-color-yellow-light)', accent: 'var(--mantine-color-yellow-5)' },
-};
 
 export function GuestView({ token }: { token: string }) {
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
@@ -155,8 +149,7 @@ export function GuestView({ token }: { token: string }) {
           endMin: b,
           // My painting: light tint + solid bar on the left; what matches for
           // everyone is drawn solid with a check on top.
-          ...PAINT[i.status],
-          label: i.status === 'yes' ? 'Dispo' : 'Si besoin',
+          ...OWN_STYLE[i.status],
         },
       ];
     });
@@ -272,24 +265,7 @@ export function GuestView({ token }: { token: string }) {
                   {formatDuration(meeting.duration)}.
                 </Text>
               </Group>
-              <Group gap="md">
-                <Text size="xs" c="dimmed">
-                  Vos dispos :
-                </Text>
-                {(['yes', 'if_needed'] as const).map((st) => (
-                  <Group key={st} gap={6}>
-                    <span
-                      style={{
-                        width: 18,
-                        height: 14,
-                        background: PAINT[st].background,
-                        borderLeft: `4px solid ${PAINT[st].accent}`,
-                      }}
-                    />
-                    <Text size="xs">{st === 'yes' ? 'dispo' : 'si besoin'}</Text>
-                  </Group>
-                ))}
-              </Group>
+              <OwnLegend />
               <StripeLegend />
               <AvailabilityGrid
                 meeting={meeting}

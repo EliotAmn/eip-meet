@@ -1,6 +1,6 @@
 import { Group, Text } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
-import { heatColor } from './AvailabilityGrid';
+import { heatColor, OWN_STYLE } from './AvailabilityGrid';
 
 function CheckSwatch({ bg, fg }: { bg: string; fg: string }) {
   return (
@@ -44,6 +44,30 @@ export function StripeLegend() {
       <Text size="xs" c="dimmed">
         · Survolez un créneau pour le détail.
       </Text>
+    </Group>
+  );
+}
+
+/** Legend of the viewer's own availability (painting, or personal calendar). */
+export function OwnLegend({ fromCalendar = false }: { fromCalendar?: boolean }) {
+  return (
+    <Group gap="md">
+      <Text size="xs" c="dimmed">
+        {fromCalendar ? 'Vos dispos (depuis votre calendrier) :' : 'Vos dispos :'}
+      </Text>
+      {(['yes', 'if_needed'] as const).map((st) => (
+        <Group key={st} gap={6}>
+          <span
+            style={{
+              width: 18,
+              height: 14,
+              background: OWN_STYLE[st].background,
+              borderLeft: `4px solid ${OWN_STYLE[st].accent}`,
+            }}
+          />
+          <Text size="xs">{OWN_STYLE[st].label.toLowerCase()}</Text>
+        </Group>
+      ))}
     </Group>
   );
 }

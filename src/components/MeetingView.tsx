@@ -43,15 +43,40 @@ import { avatarColor, initials } from '@/lib/avatar';
 import { computeRanges, evaluateMeeting } from '@/lib/availability';
 import { formatDuration } from '@/lib/time';
 import type { Interval, MeetingDetail, MemberAvailability } from '@/lib/types';
-import { AvailabilityGrid, type MyBlock } from './AvailabilityGrid';
+import { AvailabilityGrid, OWN_STYLE, type MyBlock } from './AvailabilityGrid';
 import { CopyLinkButton } from './CopyLinkButton';
 import { MeetingForm, useAccountEmails } from './MeetingForm';
 import { MeetingResults } from './MeetingResults';
-import { StripeLegend } from './StripeLegend';
+import { OwnLegend, StripeLegend } from './StripeLegend';
 
-// My "si besoin" come from my calendar, where they are edited: on the meeting
-// page they stay discreet. Busy time (mine and everyone's) is the grid's red hatch.
-const MY_SOFT_FILL = 'color-mix(in srgb, var(--mantine-color-yellow-5) 16%, transparent)';
+/**
+ * My availability on one day, from my calendar, drawn like a guest's painting
+ * (free = "Dispo", soft = "Si besoin", busy = nothing). Same minute rounding
+ * as the availability engine: any overlap with an event counts.
+ */
+function calendarBlocks(me: MemberAvailability, start: number, minutes: number): MyBlock[] {
+  const arr = new Uint8Array(minutes).fill(2);
+  const mark = (list: Interval[], value: number) => {
+    for (const [s, e] of list) {
+      const from = Math.max(0, Math.floor((Date.parse(s) - start) / 60_000));
+      const to = Math.min(minutes, Math.ceil((Date.parse(e) - start) / 60_000));
+      for (let m = from; m < to; m += 1) arr[m] = Math.min(arr[m], value);
+    }
+  };
+  mark(me.soft, 1);
+  mark(me.busy, 0);
+  const out: MyBlock[] = [];
+  let from = 0;
+  for (let m = 1; m <= minutes; m += 1) {
+    if (m < minutes && arr[m] === arr[from]) continue;
+    if (arr[from]) {
+      const style = OWN_STYLE[arr[from] === 2 ? 'yes' : 'if_needed'];
+      out.push({ startMin: from, endMin: m, ...style, fromCalendar: true });
+    }
+    from = m;
+  }
+  return out;
+}
 
 export function periodLabel(dateMin: string, dateMax: string) {
   const a = DateTime.fromISO(dateMin).setLocale('fr');
@@ -122,19 +147,11 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
   const isOwner = viewer.kind === 'member' && viewer.role === 'owner';
   const myMember = detail.members.find((m) => viewer.kind === 'member' && m.id === viewer.memberId);
 
-  // My own "si besoin" (discreet), clipped to each day's window.
-  const myBlocks = (d: number): MyBlock[] => {
-    if (!myMember?.calendarFilled) return [];
-    const day = ev.days[d];
-    const out: MyBlock[] = [];
-    const clip = ([s, e]: Interval, background: string) => {
-      const a = Math.max(0, (Date.parse(s) - day.start) / 60_000);
-      const b = Math.min(day.minutes, (Date.parse(e) - day.start) / 60_000);
-      if (b > a) out.push({ startMin: a, endMin: b, background });
-    };
-    myMember.soft.forEach((i) => clip(i, MY_SOFT_FILL));
-    return out;
-  };
+  // My availability from my calendar, shown like everyone's (edited there).
+  const myBlocks = (d: number): MyBlock[] =>
+    myMember?.calendarFilled
+      ? calendarBlocks(myMember, ev.days[d].start, ev.days[d].minutes)
+      : [];
 
   async function act(fn: () => Promise<unknown>, message?: string) {
     try {
@@ -421,14 +438,17 @@ export function MeetingView({ id, tz, meEmail }: { id: string; tz: string; meEma
           <Stack gap="sm">
             {myMember && (
               <Text size="xs" c="dimmed">
-                Les blocs ✓ montrent où la réunion tient, à la minute près. Vos « si besoin » (teinte jaune)
-                viennent de votre calendrier :{' '}
+                Les blocs ✓ montrent où la réunion tient, à la minute près.{' '}
+                {myMember.calendarFilled
+                  ? 'Vos dispos viennent de votre calendrier : '
+                  : 'Votre calendrier est vide, vous êtes compté absent : '}
                 <Anchor component={Link} href="/" size="xs">
-                  le modifier
+                  {myMember.calendarFilled ? 'le modifier' : 'le remplir'}
                 </Anchor>
                 {' · '}Heures en {tz}.
               </Text>
             )}
+            {myMember?.calendarFilled && <OwnLegend fromCalendar />}
             <StripeLegend />
             <AvailabilityGrid
               meeting={meeting}
