@@ -26,8 +26,8 @@ export interface MyBlock {
   startMin: number;
   endMin: number;
   background: string;
-  /** Thin inner outline (the viewer's painting). */
-  outline?: string;
+  /** Solid bar on the left (the viewer's painting). */
+  accent?: string;
 }
 
 type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'busy' | 'no-answer' | 'empty';
@@ -358,7 +358,7 @@ export function AvailabilityGrid({
                     top: b.startMin * pxPerMin,
                     height: (b.endMin - b.startMin) * pxPerMin,
                     background: b.background,
-                    boxShadow: b.outline ? `inset 0 0 0 1px ${b.outline}` : undefined,
+                    borderLeft: b.accent ? `6px solid ${b.accent}` : undefined,
                   }}
                 />
               ))}

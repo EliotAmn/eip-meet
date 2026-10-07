@@ -71,6 +71,12 @@
   right: 4px;
 }
 
+/* Guest page: clear the 6px bar marking one's own painting. */
+.editable .match,
+.editable .maybe {
+  left: 10px;
+}
+
 /* Result: everyone available for the whole meeting. */
 .match {
   background: var(--mantine-color-green-6);

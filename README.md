@@ -56,8 +56,8 @@ Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la
 - **Fond bleu = popularité** : plus il y a de monde disponible à ce moment, plus le bleu est
   marqué (4 niveaux bien distincts ; « si besoin » compte pour moitié, quelqu'un qui n'a
   pas répondu compte absent).
-- **Peinture de l'invité** : teinte légère avec un contour (vert = dispo, jaune = si
-  besoin), sur toute la largeur du jour ; elle n'entre pas dans le fond bleu qu'il voit.
+- **Peinture de l'invité** : teinte légère avec une barre pleine à gauche (vert = dispo,
+  jaune = si besoin), sur toute la largeur du jour ; elle n'entre pas dans le fond bleu qu'il voit.
   Les blocs ✓ sont en retrait (sur tous les côtés) pour laisser voir sa peinture autour.
 - La grille s'affiche par **semaines du lundi au dimanche** ; les jours hors de la période
   de la réunion sont grisés.

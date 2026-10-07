@@ -53,8 +53,8 @@ const sameIntervals = (a: MsInterval[], b: MsInterval[]) =>
 
 // The guest's own painting.
 const PAINT = {
-  yes: { background: 'var(--mantine-color-green-light)', outline: 'var(--mantine-color-green-5)' },
-  if_needed: { background: 'var(--mantine-color-yellow-light)', outline: 'var(--mantine-color-yellow-5)' },
+  yes: { background: 'var(--mantine-color-green-light)', accent: 'var(--mantine-color-green-6)' },
+  if_needed: { background: 'var(--mantine-color-yellow-light)', accent: 'var(--mantine-color-yellow-5)' },
 };
 
 export function GuestView({ token }: { token: string }) {
@@ -153,8 +153,8 @@ export function GuestView({ token }: { token: string }) {
         {
           startMin: a,
           endMin: b,
-          // My painting: light tint + outline; what matches for everyone is
-          // drawn solid with a check on top.
+          // My painting: light tint + solid bar on the left; what matches for
+          // everyone is drawn solid with a check on top.
           ...PAINT[i.status],
         },
       ];
@@ -281,9 +281,8 @@ export function GuestView({ token }: { token: string }) {
                       style={{
                         width: 18,
                         height: 14,
-                        borderRadius: 3,
                         background: PAINT[st].background,
-                        boxShadow: `inset 0 0 0 1px ${PAINT[st].outline}`,
+                        borderLeft: `4px solid ${PAINT[st].accent}`,
                       }}
                     />
                     <Text size="xs">{st === 'yes' ? 'dispo' : 'si besoin'}</Text>
