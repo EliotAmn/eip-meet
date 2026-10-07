@@ -210,17 +210,39 @@ export function AvailabilityGrid({
     if (Number.isInteger(day) && Number.isInteger(row)) applyRect({ day, row });
   };
 
-  // ---- Hover: result for a meeting starting at the hovered minute.
+  // ---- Hover: the best meeting containing the hovered minute (most people
+  // available, then fewest "si besoin", then centered on the cursor), so
+  // hovering anywhere in a ✓ block shows everyone available.
   const [hover, setHover] = useState<{ day: number; minute: number; x: number; y: number } | null>(
     null,
   );
 
+  const bestStart = (day: number, at: number) => {
+    const { starts } = ev.days[day];
+    const dur = meeting.duration;
+    let best = Math.max(0, Math.min(at, windowMinutes - dur));
+    let bestScore = -Infinity;
+    for (let s = Math.max(0, at - dur + 1); s <= Math.min(at, windowMinutes - dur); s += 1) {
+      let yes = 0;
+      let maybe = 0;
+      for (const p of starts) {
+        if (p[s] === 2) yes += 1;
+        else if (p[s] === 1) maybe += 1;
+      }
+      const score = (yes + maybe) * 1e6 - maybe * 1e3 - Math.abs(s + dur / 2 - at);
+      if (score > bestScore) {
+        bestScore = score;
+        best = s;
+      }
+    }
+    return best;
+  };
+
   const onColMove = (day: number) => (e: React.MouseEvent<HTMLDivElement>) => {
     if (paint.current?.active) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const raw = Math.floor((e.clientY - rect.top) / pxPerMin);
-    const minute = Math.max(0, Math.min(windowMinutes - 1, Math.floor(raw / 5) * 5));
-    setHover({ day, minute, x: rect.right, y: e.clientY });
+    const at = Math.max(0, Math.min(windowMinutes - 1, Math.floor((e.clientY - rect.top) / pxPerMin)));
+    setHover({ day, minute: bestStart(day, at), x: rect.right, y: e.clientY });
   };
 
   const statusFor = (
@@ -406,8 +428,8 @@ export function AvailabilityGrid({
 
               {hover?.day === d && (
                 <div
-                  className={`${classes.layer} ${classes.hoverLine}`}
-                  style={{ top: hover.minute * pxPerMin - 1 }}
+                  className={`${classes.layer} ${classes.hoverBox}`}
+                  style={{ top: hover.minute * pxPerMin, height: meeting.duration * pxPerMin }}
                 />
               )}
             </div>
@@ -433,7 +455,7 @@ export function AvailabilityGrid({
             {hhmm(hoverStart, tz)} - {hhmm(hoverStart + meeting.duration * MIN, tz)}
           </Text>
           <Text size="10px" c="dimmed" mb={6}>
-            Réunion de {formatDuration(meeting.duration)} commençant à cette heure
+            Meilleure réunion de {formatDuration(meeting.duration)} à cet endroit
           </Text>
           {ev.participants.map((p, idx) => {
             const meta = STATUS_META[statusFor(p, idx, hover.day, hover.minute)];

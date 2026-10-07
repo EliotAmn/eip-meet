@@ -120,9 +120,9 @@
   text-overflow: ellipsis;
 }
 
-.hoverLine {
-  height: 2px;
-  background: var(--mantine-color-indigo-4);
+.hoverBox {
+  border: 2px solid var(--mantine-color-indigo-4);
+  border-radius: 4px;
 }
 
 .inspector {

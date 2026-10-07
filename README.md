@@ -63,8 +63,9 @@ Sur une réunion, seuls les **résultats** sont mis en avant, positionnés à la
   Les blocs ✓ sont en retrait (sur tous les côtés) pour laisser voir sa peinture autour.
 - La grille s'affiche par **semaines du lundi au dimanche** ; les jours hors de la période
   de la réunion sont grisés.
-- **Survol** : pour une réunion commençant à l'heure survolée (par pas de 5 min), statut de
-  chaque personne sur toute la durée et l'heure que c'est chez elle.
+- **Survol** : la meilleure réunion contenant l'heure survolée (le plus de monde dispo, puis
+  le moins de « si besoin ») est encadrée, avec le statut de chaque personne sur toute la
+  durée et l'heure que c'est chez elle. Dans un bloc ✓, tout le monde apparaît donc dispo.
 - Onglet **Créneaux possibles** : plages dans lesquelles la réunion peut se placer, triées
   de la plus proche à la plus lointaine, filtrables par nombre minimum de participants.
 - **Membre** : ses dispos, calculées depuis son calendrier, s'affichent comme la peinture
