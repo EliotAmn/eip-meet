@@ -28,6 +28,8 @@ export interface MyBlock {
   background: string;
   /** Solid bar on the left (the viewer's painting). */
   accent?: string;
+  /** Small reminder at the top ("Dispo", "Si besoin"). */
+  label?: string;
 }
 
 type DisplayStatus = 'yes' | 'if_needed' | 'unavailable' | 'busy' | 'no-answer' | 'empty';
@@ -360,7 +362,13 @@ export function AvailabilityGrid({
                     background: b.background,
                     borderLeft: b.accent ? `6px solid ${b.accent}` : undefined,
                   }}
-                />
+                >
+                  {b.label && (b.endMin - b.startMin) * pxPerMin >= 16 && (
+                    <span className={classes.paintLabel} style={{ color: b.accent }}>
+                      {b.label}
+                    </span>
+                  )}
+                </div>
               ))}
 
               {dayBlocks(ranges, d, total).map((b, i) => {

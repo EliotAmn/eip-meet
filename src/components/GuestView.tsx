@@ -156,6 +156,7 @@ export function GuestView({ token }: { token: string }) {
           // My painting: light tint + solid bar on the left; what matches for
           // everyone is drawn solid with a check on top.
           ...PAINT[i.status],
+          label: i.status === 'yes' ? 'Dispo' : 'Si besoin',
         },
       ];
     });
