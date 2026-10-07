@@ -69,8 +69,8 @@ export function MeetingForm({
   const [durationHours, setDurationHours] = useState(Math.floor(initialDuration / 60));
   const [durationMins, setDurationMins] = useState(initialDuration % 60);
   const durationMinutes = durationHours * 60 + durationMins;
-  const [dayStart, setDayStart] = useState(String(initial?.dayStart ?? 8));
-  const [dayEnd, setDayEnd] = useState(String(initial?.dayEnd ?? 20));
+  const [dayStart, setDayStart] = useState(String(initial?.dayStart ?? 0));
+  const [dayEnd, setDayEnd] = useState(String(initial?.dayEnd ?? 24));
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const [guestNames, setGuestNames] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);

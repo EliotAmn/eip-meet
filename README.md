@@ -34,7 +34,8 @@ créneaux qui vont à tout le monde, quel que soit le fuseau horaire.
 
 ### Réunions
 - Une réunion = une **période** (date min → max), une **durée** saisie librement (heures +
-  minutes, de 5 min à 12h) et une plage horaire affichée (en heure locale de chacun).
+  minutes, de 5 min à 12h) et une plage horaire affichée (en heure locale de chacun ; par
+  défaut la journée complète, 0h - 24h).
 - **Calcul à la minute près** : une personne n'est comptée disponible pour une réunion de 2h
   commençant à 9h que si elle l'est de 9h à 11h. Un membre libre à partir de 8h15 est pris en
   compte à 8h15. La réunion doit aussi tenir entièrement dans la plage horaire affichée.
